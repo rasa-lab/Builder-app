@@ -16,18 +16,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   useEffect(() => {
     // Load keys from local storage on mount
-    const storedKeys = localStorage.getItem('xbuilder_api_keys');
-    if (storedKeys) {
-      try {
+    try {
+      const storedKeys = localStorage.getItem('xbuilder_api_keys');
+      if (storedKeys) {
         setKeys(JSON.parse(storedKeys));
-      } catch (e) {
-        console.error("Failed to parse stored keys");
       }
+    } catch (e) {
+      console.error("Failed to parse stored keys", e);
     }
   }, [isOpen]);
 
   const handleSave = () => {
-    localStorage.setItem('xbuilder_api_keys', JSON.stringify(keys));
+    try {
+      localStorage.setItem('xbuilder_api_keys', JSON.stringify(keys));
+    } catch (e) {
+      console.error("Failed to save keys", e);
+    }
     onClose();
   };
 

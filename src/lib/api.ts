@@ -19,8 +19,7 @@ CRITICAL REQUIREMENTS FOR "SMART" GENERATION:
 5. UPDATING FILES: You will be provided with the current files. You can modify them by providing the new content. To DELETE a file, provide the filename but leave the content completely empty.
 
 IMPORTANT FORMAT:
-1. First, provide a brief, professional summary of what you built, the features included, and how it works. Speak in Indonesian if the user speaks Indonesian.
-2. Then, provide the code for each file. You MUST use the following format for EVERY file:
+1. FIRST, provide the code for each file. You MUST use the following format for EVERY file:
 
 \`\`\`[language] filename: [path/to/file.ext]
 [file content here]
@@ -32,24 +31,24 @@ Example:
 ...
 \`\`\`
 
-\`\`\`tsx filename: src/components/Dashboard.tsx
-import React from 'react';
-...
-\`\`\`
-
-Do not include any other text after the code blocks.`;
+2. AFTER all code blocks, provide a conversational, professional summary of what you built, the features included, and how it works. Speak in Indonesian. Act like a helpful assistant talking to the user. Do NOT provide conversational text before the code blocks.`;
 
 export async function* streamWebsiteGeneration(
   contents: any[],
   model: string,
   apiKeys: ApiKeys,
-  currentFiles: Record<string, string> = {}
+  currentFiles: Record<string, string> = {},
+  projectMode: 'website' | 'apk' = 'website'
 ) {
   const fileContext = Object.keys(currentFiles).length > 0 
     ? `\n\nCURRENT FILES IN PROJECT:\n${Object.entries(currentFiles).map(([name, content]) => `\`\`\`${name.split('.').pop()} filename: ${name}\n${content}\n\`\`\``).join('\n')}\n\nYou can modify these files or create new ones. If you are fixing an error, provide the updated file content.`
     : '';
 
-  const finalSystemInstruction = SYSTEM_INSTRUCTION + fileContext;
+  const modeInstruction = projectMode === 'apk' 
+    ? `\n\nCRITICAL: The user has selected "Buat APK" mode. You MUST generate a complete Android project structure using XML layouts and Java/Kotlin code (e.g., AndroidManifest.xml, build.gradle, MainActivity.java, res/layout/activity_main.xml, etc.). DO NOT generate HTML/CSS/JS unless it's a WebView app. Provide all necessary files to build the APK.`
+    : `\n\nCRITICAL: The user has selected "Buat Website" mode. Generate standard web files (HTML, CSS, JS, TS, React, etc.).`;
+
+  const finalSystemInstruction = SYSTEM_INSTRUCTION + modeInstruction + fileContext;
 
   if (model.startsWith("gemini")) {
     const key = apiKeys.gemini || process.env.GEMINI_API_KEY;

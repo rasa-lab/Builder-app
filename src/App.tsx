@@ -6,7 +6,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { Auth } from './components/Auth';
 import { streamWebsiteGeneration, ApiKeys } from './lib/api';
 import { auth, db, onSnapshot, doc, collection, query, where, orderBy, setDoc, deleteDoc, serverTimestamp } from './lib/firebase';
-import { Menu, Loader2 } from 'lucide-react';
+import { Menu, Loader2, Code2, X } from 'lucide-react';
 
 export type ActionLog = {
   status: 'pending' | 'active' | 'done';
@@ -18,11 +18,15 @@ export type Message = {
   role: 'user' | 'model';
   text: string;
   logs?: ActionLog[];
+  attachments?: { name: string; data: string; type: string }[];
 };
+
+export type ProjectMode = 'website' | 'apk';
 
 export type Project = {
   id: string;
   name: string;
+  mode: ProjectMode;
   files: Record<string, string>;
   messages: Message[];
   userId: string;
@@ -30,16 +34,82 @@ export type Project = {
   updatedAt: any;
 };
 
+// --- Boot Screen Component ---
+function BootScreen({ onComplete }: { onComplete: () => void }) {
+  const [text, setText] = useState('');
+  const fullText = "Initializing X BUILDER Environment...\nLoading modules...\nConnecting to AI Core...\nSystem Ready.";
+
+  useEffect(() => {
+    let i = 0;
+    const interval = setInterval(() => {
+      setText(fullText.slice(0, i));
+      i++;
+      if (i > fullText.length) {
+        clearInterval(interval);
+        setTimeout(onComplete, 800);
+      }
+    }, 30);
+    return () => clearInterval(interval);
+  }, [onComplete]);
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center font-mono text-green-500 p-8">
+      <div className="w-full max-w-2xl">
+        <div className="flex items-center gap-3 mb-6 animate-pulse">
+          <Code2 size={32} className="text-blue-500" />
+          <h1 className="text-2xl font-bold text-white tracking-widest">X BUILDER</h1>
+        </div>
+        <pre className="whitespace-pre-wrap text-xs md:text-sm">{text}</pre>
+        <div className="mt-4 w-full h-1 bg-zinc-900 rounded-full overflow-hidden">
+          <div className="h-full bg-blue-500 transition-all duration-1000 ease-out" style={{ width: text.length === fullText.length ? '100%' : `${(text.length / fullText.length) * 100}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Welcome Modal Component ---
+function WelcomeModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <div className="bg-[#18181b] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col relative animate-in fade-in zoom-in duration-300">
+        <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors">
+          <X size={20} />
+        </button>
+        <div className="p-6 text-center flex flex-col items-center">
+          <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center mb-4 border border-blue-500/30">
+            <Code2 size={24} className="text-blue-500" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Halo selamat datang di X BUILDER</h2>
+          <p className="text-zinc-400 text-xs mb-6">
+            Platform pembuatan aplikasi dan website berbasis AI tercanggih. Silakan pilih mode proyek Anda untuk memulai.
+          </p>
+          <button 
+            onClick={onClose}
+            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+          >
+            Mulai Sekarang
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  
+  const [showBoot, setShowBoot] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [projectMode, setProjectMode] = useState<ProjectMode>('website');
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [files, setFiles] = useState<Record<string, string>>({
-    'index.html': '<!DOCTYPE html>\n<html>\n<head>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body>\n  <div class="flex items-center justify-center h-screen bg-[#09090b] text-zinc-300 font-sans">\n    <div class="text-center">\n      <h1 class="text-3xl font-semibold mb-2 text-blue-500">Website Preview</h1>\n      <p class="text-zinc-400">Describe the website you want to build in the chat.</p>\n    </div>\n  </div>\n</body>\n</html>'
+    'index.html': '<!DOCTYPE html>\n<html>\n<head>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body>\n  <div class="flex items-center justify-center h-screen bg-[#09090b] text-zinc-300 font-sans">\n    <div class="text-center">\n      <h1 class="text-3xl font-semibold mb-2 text-blue-500">Preview</h1>\n      <p class="text-zinc-400">Describe what you want to build in the chat.</p>\n    </div>\n  </div>\n</body>\n</html>'
   });
   
   const [isGenerating, setIsGenerating] = useState(false);
@@ -54,6 +124,13 @@ export default function App() {
     const unsubscribe = auth.onAuthStateChanged((u) => {
       setUser(u);
       setAuthLoading(false);
+      if (u) {
+        // Only show welcome once per login session
+        if (!sessionStorage.getItem('xbuilder_welcomed')) {
+          setShowWelcome(true);
+          sessionStorage.setItem('xbuilder_welcomed', 'true');
+        }
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -68,8 +145,9 @@ export default function App() {
         projs.push({
           id: doc.id,
           name: data.name,
-          files: JSON.parse(data.files || '{}'),
-          messages: JSON.parse(data.messages || '[]'),
+          mode: data.mode || 'website',
+          files: JSON.parse(data.files || '{}') || {},
+          messages: JSON.parse(data.messages || '[]') || [],
           userId: data.userId,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt
@@ -80,7 +158,7 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  const saveProject = async (msgs: Message[], currentFiles: Record<string, string>) => {
+  const saveProject = async (msgs: Message[], currentFiles: Record<string, string>, mode: ProjectMode) => {
     if (!user) return;
     
     let projId = currentProjectId;
@@ -95,6 +173,7 @@ export default function App() {
       id: projId,
       userId: user.uid,
       name: title,
+      mode: mode,
       files: JSON.stringify(currentFiles),
       messages: JSON.stringify(msgs),
       updatedAt: serverTimestamp(),
@@ -126,11 +205,11 @@ export default function App() {
     }
   };
 
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, attachments?: { name: string; data: string; type: string }[]) => {
     const userMsgId = Date.now().toString();
     const modelMsgId = (Date.now() + 1).toString();
     
-    const newMessages: Message[] = [...messages, { id: userMsgId, role: 'user', text }];
+    const newMessages: Message[] = [...messages, { id: userMsgId, role: 'user', text, attachments }];
     setMessages(newMessages);
     setIsGenerating(true);
     
@@ -139,31 +218,34 @@ export default function App() {
     }
 
     try {
-      const contents = newMessages.map(m => ({
-        role: m.role,
-        parts: [{ text: m.text }]
-      }));
+      const contents = newMessages.map(m => {
+        const parts: any[] = [{ text: m.text }];
+        if (m.attachments) {
+          m.attachments.forEach(att => {
+            if (att.data.startsWith('data:image')) {
+              parts.push({
+                inlineData: {
+                  data: att.data.split(',')[1],
+                  mimeType: att.type
+                }
+              });
+            } else {
+              parts.push({ text: `\n\nAttached File (${att.name}):\n${att.data}` });
+            }
+          });
+        }
+        return { role: m.role, parts };
+      });
 
       const storedKeys = localStorage.getItem('xbuilder_api_keys');
       const apiKeys: ApiKeys = storedKeys ? JSON.parse(storedKeys) : { gemini: '', openrouter: '', grok: '' };
 
-      const stream = streamWebsiteGeneration(contents, selectedModel, apiKeys, files);
+      const stream = streamWebsiteGeneration(contents, selectedModel, apiKeys, files || {}, projectMode);
       let fullResponse = "";
       
       const isErrorFix = text.toLowerCase().match(/error|bug|fix|rusak|salah|perbaiki|gagal/);
 
-      const THINKING_STEPS = isErrorFix ? [
-        "Menganalisis pesan error dari kamu...",
-        "Memeriksa file yang relevan dengan error...",
-        "Mencari akar penyebab masalah (debugging)...",
-        "Menemukan solusi yang tepat...",
-        "Merencanakan perubahan kode...",
-        "Menerapkan perbaikan pada komponen...",
-        "Menyesuaikan logika agar tidak terjadi error lagi...",
-        "Memastikan perbaikan tidak merusak fitur lain...",
-        "Mengecek ulang kode yang telah diperbarui...",
-        "Menyimpan perubahan dan menyelesaikan perbaikan..."
-      ] : [
+      let THINKING_STEPS = [
         "Membaca dan memahami permintaan kamu...",
         "Memikirkan arsitektur yang paling cocok...",
         "Menyiapkan struktur proyek dan library...",
@@ -171,10 +253,38 @@ export default function App() {
         "Mulai menulis kerangka komponen...",
         "Mengimplementasikan logika utama aplikasi...",
         "Menambahkan styling agar terlihat modern...",
-        "Memastikan website responsif di semua perangkat...",
+        "Memastikan responsivitas di semua perangkat...",
         "Mengecek kembali kode untuk menghindari error...",
         "Menyelesaikan dan merapikan semua file..."
       ];
+
+      if (isErrorFix) {
+        THINKING_STEPS = [
+          "Menganalisis pesan error dari kamu...",
+          "Memeriksa file yang relevan dengan error...",
+          "Mencari akar penyebab masalah (debugging)...",
+          "Menemukan solusi yang tepat...",
+          "Merencanakan perubahan kode...",
+          "Menerapkan perbaikan pada komponen...",
+          "Menyesuaikan logika agar tidak terjadi error lagi...",
+          "Memastikan perbaikan tidak merusak fitur lain...",
+          "Mengecek ulang kode yang telah diperbarui...",
+          "Menyimpan perubahan dan menyelesaikan perbaikan..."
+        ];
+      } else if (projectMode === 'apk') {
+        THINKING_STEPS = [
+          "Menganalisis kebutuhan aplikasi Android...",
+          "Menyiapkan struktur AndroidManifest.xml...",
+          "Mengkonfigurasi build.gradle dan dependencies...",
+          "Mendesain layout XML untuk UI aplikasi...",
+          "Menulis logika Java/Kotlin di MainActivity...",
+          "Menghubungkan UI XML dengan kode backend...",
+          "Menambahkan resource (string, warna, drawable)...",
+          "Memastikan kompatibilitas versi Android...",
+          "Mengecek potensi error pada kompilasi...",
+          "Menyelesaikan struktur project Android Studio..."
+        ];
+      }
 
       setMessages(prev => [...prev, { 
         id: modelMsgId, 
@@ -183,15 +293,12 @@ export default function App() {
         logs: [{ status: 'active', text: THINKING_STEPS[0] }]
       }]);
 
-      let newFiles = { ...files };
+      let newFiles = { ...(files || {}) };
       let hasStartedCode = false;
 
       for await (const chunk of stream) {
         fullResponse += chunk;
         
-        // Calculate progress based on response length. 
-        // Assume an average full response is around 3000-4000 characters.
-        // We cap it at the last step.
         const progressIndex = Math.min(
           Math.floor(fullResponse.length / 300), 
           THINKING_STEPS.length - 1
@@ -210,12 +317,10 @@ export default function App() {
           hasStartedCode = true;
         }
 
-        // Extract explanation (anything outside of ``` blocks) and files
         const fileRegex = /```(?:[a-z]+)?\s*(?:<!--|#|\/\/)?\s*filename:\s*([^\n]+)\n([\s\S]*?)```/gi;
-        let tempFiles = { ...files };
+        let tempFiles = { ...(files || {}) };
         let hasFiles = false;
 
-        // We need to parse all complete file blocks
         const completedBlocks = [...fullResponse.matchAll(fileRegex)];
         for (const m of completedBlocks) {
           const filename = m[1].trim();
@@ -228,8 +333,7 @@ export default function App() {
           hasFiles = true;
         }
 
-        // Also check for standard html block if no filename provided
-        if (!hasFiles) {
+        if (!hasFiles && projectMode === 'website') {
           const htmlMatch = fullResponse.match(/```(?:html)?\n([\s\S]*?)(```|$)/i);
           if (htmlMatch && htmlMatch[1]) {
             tempFiles['index.html'] = htmlMatch[1];
@@ -239,13 +343,11 @@ export default function App() {
         newFiles = tempFiles;
         setFiles(newFiles);
 
-        // DO NOT update text yet, only update logs to keep UI clean and fast
         setMessages(prev => prev.map(m => 
           m.id === modelMsgId ? { ...m, text: '', logs: currentLogs } : m
         ));
       }
 
-      // Finalize logs
       const finalLogs: ActionLog[] = THINKING_STEPS.map(step => ({
         status: 'done',
         text: step
@@ -253,7 +355,7 @@ export default function App() {
 
       let finalDisplayText = fullResponse.replace(/```[\s\S]*?(```|$)/g, '').trim();
 
-      const finalMessages = messages.map(m => m).concat([{ id: userMsgId, role: 'user', text }, { 
+      const finalMessages = messages.map(m => m).concat([{ id: userMsgId, role: 'user', text, attachments }, { 
         id: modelMsgId, 
         role: 'model', 
         text: finalDisplayText,
@@ -261,7 +363,7 @@ export default function App() {
       }]);
 
       setMessages(finalMessages);
-      await saveProject(finalMessages, newFiles);
+      await saveProject(finalMessages, newFiles, projectMode);
 
     } catch (error: any) {
       console.error("Generation error:", error);
@@ -280,17 +382,23 @@ export default function App() {
   const handleClearChat = () => {
     setMessages([]);
     setFiles({
-      'index.html': '<!DOCTYPE html>\n<html>\n<head>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body>\n  <div class="flex items-center justify-center h-screen bg-[#09090b] text-zinc-300 font-sans">\n    <div class="text-center">\n      <h1 class="text-3xl font-semibold mb-2 text-blue-500">Website Preview</h1>\n      <p class="text-zinc-400">Describe the website you want to build in the chat.</p>\n    </div>\n  </div>\n</body>\n</html>'
+      'index.html': '<!DOCTYPE html>\n<html>\n<head>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body>\n  <div class="flex items-center justify-center h-screen bg-[#09090b] text-zinc-300 font-sans">\n    <div class="text-center">\n      <h1 class="text-3xl font-semibold mb-2 text-blue-500">Preview</h1>\n      <p class="text-zinc-400">Describe what you want to build in the chat.</p>\n    </div>\n  </div>\n</body>\n</html>'
     });
     setCurrentProjectId(null);
+    setProjectMode('website');
   };
 
   const loadProject = (proj: Project) => {
     setCurrentProjectId(proj.id);
     setMessages(proj.messages);
     setFiles(proj.files);
+    setProjectMode(proj.mode || 'website');
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
+
+  if (showBoot) {
+    return <BootScreen onComplete={() => setShowBoot(false)} />;
+  }
 
   if (authLoading) {
     return (
@@ -306,6 +414,8 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-[#09090b] text-zinc-300 font-sans overflow-hidden">
+      {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
+      
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm" 
@@ -358,6 +468,8 @@ export default function App() {
             isGenerating={isGenerating} 
             selectedModel={selectedModel}
             onModelChange={setSelectedModel}
+            projectMode={projectMode}
+            onModeChange={setProjectMode}
           />
         </div>
 
@@ -365,6 +477,7 @@ export default function App() {
           <PreviewPane 
             files={files} 
             onChangeFiles={setFiles} 
+            projectMode={projectMode}
           />
         </div>
       </div>

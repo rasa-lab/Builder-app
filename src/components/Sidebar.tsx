@@ -25,24 +25,24 @@ export function Sidebar({ projects, currentProjectId, onLoadProject, onDeletePro
 
   return (
     <div className="w-64 bg-[#09090b] border-r border-zinc-800 flex flex-col h-full">
-      <div className="p-4 flex items-center justify-between border-b border-zinc-800">
-        <div className="flex items-center gap-2 font-bold text-[15px] text-zinc-100 tracking-wide">
-          <Code2 size={20} className="text-blue-500" />
+      <div className="p-3 flex items-center justify-between border-b border-zinc-800">
+        <div className="flex items-center gap-2 font-bold text-sm text-zinc-100 tracking-wide">
+          <Code2 size={18} className="text-blue-500" />
           <span>X BUILDER</span>
         </div>
         {onClose && (
           <button onClick={onClose} className="md:hidden p-1.5 hover:bg-zinc-800 rounded-md text-zinc-400">
-            <X size={18} />
+            <X size={16} />
           </button>
         )}
       </div>
       
-      <div className="p-3">
+      <div className="p-2">
         <button 
           onClick={onClearChat}
-          className="w-full flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg transition-colors font-medium text-sm shadow-sm"
+          className="w-full flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg transition-colors font-medium text-xs shadow-sm"
         >
-          <Plus size={18} />
+          <Plus size={16} />
           New Project
         </button>
       </div>
@@ -66,26 +66,26 @@ export function Sidebar({ projects, currentProjectId, onLoadProject, onDeletePro
         </div>
       </div>
 
-      <div className="p-3 border-t border-zinc-800 space-y-1">
+      <div className="p-2 border-t border-zinc-800 space-y-1">
         <button 
           onClick={onClearChat}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium text-zinc-400 hover:bg-zinc-800 hover:text-red-400"
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-red-400"
         >
-          <Trash2 size={16} />
+          <Trash2 size={14} />
           Clear Chat
         </button>
         <button 
           onClick={onOpenSettings}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
         >
-          <Settings size={16} />
+          <Settings size={14} />
           Settings
         </button>
         <button 
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
         >
-          <LogOut size={16} />
+          <LogOut size={14} />
           Sign Out
         </button>
       </div>
@@ -112,22 +112,22 @@ function SidebarItem({ project, active = false, onClick, onDelete, onRename }: {
     <div className="relative group">
       {isEditing ? (
         <form onSubmit={handleRenameSubmit} className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-zinc-800">
-          <Folder size={16} className="text-zinc-400 shrink-0" />
+          <Folder size={14} className="text-zinc-400 shrink-0" />
           <input 
             type="text" 
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onBlur={handleRenameSubmit}
             autoFocus
-            className="bg-transparent border-none outline-none text-sm text-zinc-100 w-full"
+            className="bg-transparent border-none outline-none text-xs text-zinc-100 w-full"
           />
         </form>
       ) : (
         <div 
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors text-sm font-medium ${active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
+          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md transition-colors text-xs font-medium ${active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
         >
-          <button onClick={onClick} className="flex items-center gap-3 flex-1 truncate text-left">
-            <Folder size={16} className="shrink-0" />
+          <button onClick={onClick} className="flex items-center gap-2 flex-1 truncate text-left">
+            <Folder size={14} className="shrink-0" />
             <span className="truncate">{project.name}</span>
           </button>
           
