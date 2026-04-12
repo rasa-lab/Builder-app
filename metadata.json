@@ -1,0 +1,5 @@
+{
+  "name": "X BUILDER",
+  "description": "A professional, real-time website builder featuring live code generation and preview using Gemini, OpenRouter, and Grok.",
+  "requestFramePermissions": []
+}
