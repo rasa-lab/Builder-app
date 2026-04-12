@@ -124,42 +124,28 @@ function SidebarItem({ project, active = false, onClick, onDelete, onRename }: {
         </form>
       ) : (
         <div 
-          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md transition-colors text-xs font-medium ${active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
+          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md transition-colors text-xs font-medium group/item ${active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
         >
           <button onClick={onClick} className="flex items-center gap-2 flex-1 truncate text-left">
             <Folder size={14} className="shrink-0" />
             <span className="truncate">{project.name}</span>
           </button>
           
-          <div className="relative shrink-0 ml-2">
+          <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity shrink-0 ml-2">
             <button 
-              onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-              className={`p-1 rounded-md hover:bg-zinc-700 transition-colors ${showMenu ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+              onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+              className="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+              title="Rename"
             >
-              <MoreVertical size={14} />
+              <Edit2 size={12} />
             </button>
-            
-            {showMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 w-32 bg-[#18181b] border border-zinc-800 rounded-md shadow-xl z-50 py-1">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setIsEditing(true); setShowMenu(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
-                  >
-                    <Edit2 size={12} />
-                    Rename
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onDelete(); setShowMenu(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-zinc-800 hover:text-red-300"
-                  >
-                    <Trash2 size={12} />
-                    Delete
-                  </button>
-                </div>
-              </>
-            )}
+            <button 
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-red-400 transition-colors"
+              title="Delete"
+            >
+              <Trash2 size={12} />
+            </button>
           </div>
         </div>
       )}

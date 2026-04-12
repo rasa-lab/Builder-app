@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, ChevronDown, ChevronRight, Check, Loader2, Copy, Paperclip, X, Smartphone, Globe } from 'lucide-react';
+import { Send, Bot, User, Sparkles, ChevronDown, ChevronRight, Check, Loader2, Copy, Paperclip, X, Smartphone, Globe, RefreshCw } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { ActionLog, Message, ProjectMode } from '../App';
 
@@ -45,8 +45,9 @@ function ActionLogsComponent({ logs }: { logs: ActionLog[] }) {
   );
 }
 
-function CopyButton({ text }: { text: string }) {
+function ActionButtons({ text, onRepeat }: { text: string, onRepeat: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
@@ -55,13 +56,41 @@ function CopyButton({ text }: { text: string }) {
   };
 
   return (
-    <button 
-      onClick={handleCopy}
-      className="mt-4 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-md hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-    >
-      {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-      {copied ? 'Disalin!' : 'Salin'}
-    </button>
+    <div className="mt-4 flex items-center gap-2 relative">
+      {showConfirm && (
+        <div className="absolute bottom-full left-0 mb-2 w-64 bg-[#18181b] border border-zinc-800 rounded-lg p-3 shadow-xl z-10">
+          <p className="text-xs text-zinc-300 mb-3 text-center">Anda yakin mengulangi semua file?</p>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => { setShowConfirm(false); onRepeat(); }}
+              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs py-1.5 rounded transition-colors"
+            >
+              Iya
+            </button>
+            <button 
+              onClick={() => setShowConfirm(false)}
+              className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs py-1.5 rounded transition-colors"
+            >
+              Tidak
+            </button>
+          </div>
+        </div>
+      )}
+      <button 
+        onClick={() => setShowConfirm(true)}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-md hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+      >
+        <RefreshCw size={14} />
+        Ulangi
+      </button>
+      <button 
+        onClick={handleCopy}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-md hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+      >
+        {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+        {copied ? 'Disalin!' : 'Salin'}
+      </button>
+    </div>
   );
 }
 
@@ -107,16 +136,23 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
       }
 
       const reader = new FileReader();
+      const isText = file.type.startsWith('text/') || file.type === 'application/json' || file.name.match(/\.(js|ts|jsx|tsx|css|html|md|csv|xml)$/i);
+      
       reader.onload = (event) => {
         if (event.target?.result) {
           setAttachments(prev => [...prev, {
             name: file.name,
             data: event.target!.result as string,
-            type: file.type
+            type: isText ? 'text/plain' : file.type
           }]);
         }
       };
-      reader.readAsDataURL(file);
+      
+      if (isText) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsDataURL(file);
+      }
     });
     
     if (fileInputRef.current) {
@@ -127,6 +163,24 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
+
+  const [showRecommendations, setShowRecommendations] = useState(true);
+
+  const websiteRecommendations = [
+    "Tambahkan animasi transisi",
+    "Buat menjadi responsif untuk mobile",
+    "Tambahkan dark mode",
+    "Ubah warna tema menjadi biru"
+  ];
+
+  const apkRecommendations = [
+    "Tambahkan splash screen",
+    "Buat navigasi bottom bar",
+    "Tambahkan fitur login",
+    "Ubah warna utama aplikasi"
+  ];
+
+  const recommendations = projectMode === 'website' ? websiteRecommendations : apkRecommendations;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0e0e11] border-r border-zinc-800">
@@ -146,10 +200,16 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
               <optgroup label="Gemini">
                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
                 <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Hemat)</option>
+                <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash Lite (Sangat Hemat)</option>
+              </optgroup>
+              <optgroup label="OpenAI">
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
               </optgroup>
               <optgroup label="OpenRouter">
                 <option value="anthropic/claude-3.7-sonnet">Claude 3.7 Sonnet</option>
-                <option value="openai/gpt-4o">GPT-4o</option>
+                <option value="openai/gpt-4o">GPT-4o (OpenRouter)</option>
               </optgroup>
               <optgroup label="xAI">
                 <option value="grok-2-latest">Grok 2</option>
@@ -166,7 +226,7 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
             <div className="w-12 h-12 bg-blue-900/20 rounded-xl flex items-center justify-center mb-4 border border-blue-500/20">
               <Sparkles className="text-blue-500" size={24} />
             </div>
-            <h2 className="text-lg font-semibold text-zinc-200 mb-1">Mulai Proyek Baru</h2>
+            <h2 className="text-xl font-bold text-white mb-2">Halo, Selamat Datang di X BUILDER!</h2>
             <p className="text-zinc-400 text-xs mb-6">Pilih mode proyek yang ingin Anda buat hari ini.</p>
             
             <div className="flex flex-col gap-3 w-full">
@@ -195,6 +255,21 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
                   <div className="text-[11px] text-zinc-500 mt-0.5">Buat website modern dengan HTML, CSS, JS, atau React.</div>
                 </div>
               </button>
+            </div>
+            
+            <div className="mt-8 w-full">
+              <p className="text-xs text-zinc-500 mb-3 text-left">Rekomendasi Prompt:</p>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setInput("Buatkan saya landing page untuk toko kopi dengan tema gelap")} className="text-xs bg-zinc-800/50 hover:bg-zinc-800 text-zinc-300 px-3 py-1.5 rounded-full border border-zinc-700/50 transition-colors text-left">
+                  Landing page toko kopi
+                </button>
+                <button onClick={() => setInput("Buatkan aplikasi kalkulator sederhana dengan UI modern")} className="text-xs bg-zinc-800/50 hover:bg-zinc-800 text-zinc-300 px-3 py-1.5 rounded-full border border-zinc-700/50 transition-colors text-left">
+                  Aplikasi kalkulator
+                </button>
+                <button onClick={() => setInput("Buatkan portofolio developer dengan animasi scroll")} className="text-xs bg-zinc-800/50 hover:bg-zinc-800 text-zinc-300 px-3 py-1.5 rounded-full border border-zinc-700/50 transition-colors text-left">
+                  Portofolio developer
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -241,7 +316,20 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
                   </div>
 
                   {msg.role === 'model' && msg.text && (
-                    <CopyButton text={msg.text} />
+                    <ActionButtons text={msg.text} onRepeat={() => {
+                      // Find the last user message before this model message
+                      const currentIndex = messages.findIndex(m => m.id === msg.id);
+                      let lastUserMsg = null;
+                      for (let i = currentIndex - 1; i >= 0; i--) {
+                        if (messages[i].role === 'user') {
+                          lastUserMsg = messages[i];
+                          break;
+                        }
+                      }
+                      if (lastUserMsg) {
+                        onSendMessage(lastUserMsg.text, lastUserMsg.attachments);
+                      }
+                    }} />
                   )}
                 </div>
               </div>
@@ -252,8 +340,31 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
       </div>
 
       {/* Input Area */}
-      <div className="p-3 bg-[#0e0e11] shrink-0 border-t border-zinc-800/50">
-        <div className="max-w-4xl mx-auto relative">
+      <div className="p-3 bg-[#0e0e11] shrink-0 border-t border-zinc-800/50 flex flex-col">
+        {messages.length > 0 && showRecommendations && !isGenerating && (
+          <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide max-w-4xl mx-auto w-full">
+            <button 
+              onClick={() => setShowRecommendations(false)}
+              className="shrink-0 p-1.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
+              title="Tutup rekomendasi"
+            >
+              <X size={12} />
+            </button>
+            {recommendations.map((rec, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  onSendMessage(rec);
+                  setShowRecommendations(false);
+                }}
+                className="shrink-0 px-3 py-1.5 bg-[#18181b] border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/50 rounded-full text-xs text-zinc-300 transition-colors whitespace-nowrap"
+              >
+                {rec}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="max-w-4xl mx-auto relative w-full">
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2 p-2 bg-[#18181b] border border-zinc-800 rounded-lg">
               {attachments.map((att, i) => (

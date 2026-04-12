@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ChatPane } from './components/ChatPane';
 import { PreviewPane } from './components/PreviewPane';
@@ -34,34 +34,80 @@ export type Project = {
   updatedAt: any;
 };
 
-// --- Boot Screen Component ---
+// Security measures
+const securityCheck = () => {
+  // Anti-Scraping & Anti-DDoS (Basic Client-Side)
+  const requestCount = parseInt(sessionStorage.getItem('req_count') || '0');
+  const lastRequest = parseInt(sessionStorage.getItem('last_req') || '0');
+  const now = Date.now();
+
+  if (now - lastRequest < 1000) { // Max 1 request per second
+    sessionStorage.setItem('req_count', (requestCount + 1).toString());
+    if (requestCount > 10) {
+      alert('Terlalu banyak permintaan. Harap tunggu sebentar.');
+      return false;
+    }
+  } else {
+    sessionStorage.setItem('req_count', '1');
+  }
+  sessionStorage.setItem('last_req', now.toString());
+  return true;
+};
+
+// Anti-XSS (Basic Sanitization for display)
+const sanitizeInput = (input: string) => {
+  return input.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+};
+
+// --- BootScreen Component ---
 function BootScreen({ onComplete }: { onComplete: () => void }) {
-  const [text, setText] = useState('');
-  const fullText = "Initializing X BUILDER Environment...\nLoading modules...\nConnecting to AI Core...\nSystem Ready.";
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState('Mengakses system ai...');
 
   useEffect(() => {
-    let i = 0;
+    const steps = [
+      { p: 33, text: 'Mengakses system ai...' },
+      { p: 66, text: 'Mengecek ai...' },
+      { p: 100, text: 'Active' }
+    ];
+
+    let currentStep = 0;
     const interval = setInterval(() => {
-      setText(fullText.slice(0, i));
-      i++;
-      if (i > fullText.length) {
+      if (currentStep < steps.length) {
+        setProgress(steps[currentStep].p);
+        setStatus(steps[currentStep].text);
+        currentStep++;
+      } else {
         clearInterval(interval);
-        setTimeout(onComplete, 800);
+        setTimeout(onComplete, 500);
       }
-    }, 30);
+    }, 600);
+
     return () => clearInterval(interval);
-  }, [onComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center font-mono text-green-500 p-8">
-      <div className="w-full max-w-2xl">
-        <div className="flex items-center gap-3 mb-6 animate-pulse">
-          <Code2 size={32} className="text-blue-500" />
-          <h1 className="text-2xl font-bold text-white tracking-widest">X BUILDER</h1>
+    <div className="fixed inset-0 bg-[#09090b] flex flex-col items-center justify-center z-[200] font-mono">
+      <div className="w-full max-w-md p-6">
+        <div className="flex items-center gap-3 mb-6 justify-center animate-pulse">
+          <div className="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center border border-blue-500/30">
+            <Code2 size={20} className="text-blue-500" />
+          </div>
+          <h1 className="text-xl font-bold text-zinc-100 tracking-wider">X BUILDER</h1>
         </div>
-        <pre className="whitespace-pre-wrap text-xs md:text-sm">{text}</pre>
-        <div className="mt-4 w-full h-1 bg-zinc-900 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-500 transition-all duration-1000 ease-out" style={{ width: text.length === fullText.length ? '100%' : `${(text.length / fullText.length) * 100}%` }} />
+        
+        <div className="space-y-4">
+          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+            <div 
+              className="h-full bg-blue-500 transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[10px] text-zinc-500 uppercase tracking-wider">
+            <span>{status}</span>
+            <span>{progress}%</span>
+          </div>
         </div>
       </div>
     </div>
@@ -120,6 +166,8 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chat' | 'preview'>('chat');
 
+  const initialLoadRef = useRef(true);
+
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((u) => {
       setUser(u);
@@ -142,18 +190,33 @@ export default function App() {
       const projs: Project[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
+        let parsedFiles = {};
+        let parsedMessages = [];
+        try { parsedFiles = typeof data.files === 'string' ? JSON.parse(data.files) : (data.files || {}); } catch(e){}
+        try { parsedMessages = typeof data.messages === 'string' ? JSON.parse(data.messages) : (data.messages || []); } catch(e){}
+        
         projs.push({
           id: doc.id,
           name: data.name,
           mode: data.mode || 'website',
-          files: JSON.parse(data.files || '{}') || {},
-          messages: JSON.parse(data.messages || '[]') || [],
+          files: parsedFiles,
+          messages: parsedMessages,
           userId: data.userId,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt
         });
       });
       setProjects(projs);
+
+      if (initialLoadRef.current) {
+        if (projs.length > 0 && !currentProjectId) {
+          setCurrentProjectId(projs[0].id);
+          setMessages(projs[0].messages);
+          setFiles(projs[0].files);
+          setProjectMode(projs[0].mode || 'website');
+        }
+        initialLoadRef.current = false;
+      }
     });
     return () => unsubscribe();
   }, [user]);
@@ -205,11 +268,24 @@ export default function App() {
     }
   };
 
+  const lastMessageTimeRef = React.useRef<number>(0);
+
   const handleSendMessage = async (text: string, attachments?: { name: string; data: string; type: string }[]) => {
+    if (!securityCheck()) return;
+    
+    const sanitizedText = sanitizeInput(text);
+
+    const now = Date.now();
+    if (now - lastMessageTimeRef.current < 2000) {
+      alert("Anti-DDoS: Harap tunggu sebentar sebelum mengirim pesan lagi.");
+      return;
+    }
+    lastMessageTimeRef.current = now;
+
     const userMsgId = Date.now().toString();
     const modelMsgId = (Date.now() + 1).toString();
     
-    const newMessages: Message[] = [...messages, { id: userMsgId, role: 'user', text, attachments }];
+    const newMessages: Message[] = [...messages, { id: userMsgId, role: 'user', text: sanitizedText, attachments }];
     setMessages(newMessages);
     setIsGenerating(true);
     
@@ -222,11 +298,11 @@ export default function App() {
         const parts: any[] = [{ text: m.text }];
         if (m.attachments) {
           m.attachments.forEach(att => {
-            if (att.data.startsWith('data:image')) {
+            if (att.data.startsWith('data:')) {
               parts.push({
                 inlineData: {
                   data: att.data.split(',')[1],
-                  mimeType: att.type
+                  mimeType: att.type || 'application/octet-stream'
                 }
               });
             } else {
@@ -355,7 +431,7 @@ export default function App() {
 
       let finalDisplayText = fullResponse.replace(/```[\s\S]*?(```|$)/g, '').trim();
 
-      const finalMessages = messages.map(m => m).concat([{ id: userMsgId, role: 'user', text, attachments }, { 
+      const finalMessages = messages.map(m => m).concat([{ id: userMsgId, role: 'user', text: sanitizedText, attachments }, { 
         id: modelMsgId, 
         role: 'model', 
         text: finalDisplayText,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor, { loader } from '@monaco-editor/react';
-import { Code, LayoutTemplate, Maximize2, RefreshCw, Download, Github, FileCode2, FileJson, FileType2, X, Loader2, Smartphone } from 'lucide-react';
+import { Code, LayoutTemplate, Maximize2, RefreshCw, Download, Github, FileCode2, FileJson, FileType2, X, Loader2, Smartphone, CloudLightning } from 'lucide-react';
 import JSZip from 'jszip';
 import { uploadToGithub } from '../lib/github';
 import { ProjectMode } from '../App';
@@ -28,6 +28,14 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
+
+  // Netlify Modal State
+  const [showNetlifyConfirm, setShowNetlifyConfirm] = useState(false);
+  const [showNetlifyForm, setShowNetlifyForm] = useState(false);
+  const [netlifyDomain, setNetlifyDomain] = useState('');
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployError, setDeployError] = useState('');
+  const [deploySuccess, setDeploySuccess] = useState('');
 
   const handleRefresh = () => {
     setIframeKey(prev => prev + 1);
@@ -59,15 +67,74 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
     Object.entries(files || {}).forEach(([filename, content]) => {
       zip.file(filename, content);
     });
-    const blob = await zip.generateAsync({ type: 'blob' });
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const blob = new Blob([zipBlob], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'xbuilder-android-project.zip';
+    a.download = 'xbuilder-android-project.app';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleNetlifyDeploy = async () => {
+    if (!netlifyDomain.trim()) {
+      setDeployError("Domain harus diisi.");
+      return;
+    }
+
+    setIsDeploying(true);
+    setDeployError('');
+    setDeploySuccess('');
+
+    try {
+      const zip = new JSZip();
+      Object.entries(files || {}).forEach(([filename, content]) => {
+        zip.file(filename, content);
+      });
+      const blob = await zip.generateAsync({ type: 'blob' });
+
+      const response = await fetch('https://api.netlify.com/api/v1/sites', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer nfp_AeUb929nKWme43zsgNMvGmPXNUJYAPe1388b',
+          'Content-Type': 'application/zip'
+        },
+        body: blob
+      });
+
+      if (!response.ok) {
+        throw new Error('Gagal deploy ke Netlify');
+      }
+
+      const data = await response.json();
+      
+      // Update site name if provided
+      if (netlifyDomain.trim()) {
+        const siteName = netlifyDomain.replace('.netlify.app', '');
+        await fetch(`https://api.netlify.com/api/v1/sites/${data.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': 'Bearer nfp_AeUb929nKWme43zsgNMvGmPXNUJYAPe1388b',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: siteName })
+        });
+      }
+
+      setDeploySuccess(`Berhasil dideploy! URL: https://${netlifyDomain.replace('.netlify.app', '')}.netlify.app`);
+      setTimeout(() => {
+        setShowNetlifyForm(false);
+        setDeploySuccess('');
+        setNetlifyDomain('');
+      }, 4000);
+    } catch (err: any) {
+      setDeployError(err.message || "Gagal deploy ke Netlify.");
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   const handleGithubUpload = async () => {
@@ -155,6 +222,14 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
     return <Code size={14} className="text-zinc-400" />;
   };
 
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-[#18181b] border-l border-zinc-800 h-full relative">
       {/* GitHub Modals */}
@@ -236,6 +311,75 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
         </div>
       )}
 
+      {/* Netlify Modals */}
+      {showNetlifyConfirm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-5 w-[300px] shadow-2xl">
+            <p className="text-sm text-zinc-200 text-center mb-5">Apakah anda ingin mengupload file anda ke netlify?</p>
+            <div className="flex gap-3 justify-center">
+              <button 
+                onClick={() => { setShowNetlifyConfirm(false); setShowNetlifyForm(true); }}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-colors"
+              >
+                Iya
+              </button>
+              <button 
+                onClick={() => setShowNetlifyConfirm(false)}
+                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-colors"
+              >
+                Tidak
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNetlifyForm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-5 w-[350px] shadow-2xl relative">
+            <button onClick={() => setShowNetlifyForm(false)} className="absolute top-3 right-3 text-zinc-500 hover:text-zinc-300">
+              <X size={16} />
+            </button>
+            <h3 className="text-sm font-medium text-white mb-1 text-center">Deploy</h3>
+            <p className="text-xs text-zinc-400 text-center mb-4">Isi format ini agar bisa di deploy</p>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1">Domain Name</label>
+                <input 
+                  type="text" 
+                  value={netlifyDomain}
+                  onChange={(e) => setNetlifyDomain(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-blue-500"
+                  placeholder="contoh: test-111.netlify.app"
+                />
+              </div>
+            </div>
+
+            {deployError && <div className="mt-3 text-xs text-red-400 bg-red-400/10 p-2 rounded">{deployError}</div>}
+            {deploySuccess && <div className="mt-3 text-xs text-emerald-400 bg-emerald-400/10 p-2 rounded">{deploySuccess}</div>}
+
+            <div className="flex gap-3 justify-center mt-5">
+              <button 
+                onClick={handleNetlifyDeploy}
+                disabled={isDeploying}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {isDeploying ? <Loader2 size={14} className="animate-spin" /> : null}
+                Iya
+              </button>
+              <button 
+                onClick={() => setShowNetlifyForm(false)}
+                disabled={isDeploying}
+                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+              >
+                Tidak
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="h-12 border-b border-zinc-800 flex items-center px-2 shrink-0 bg-[#09090b]">
         <div className="flex gap-1 p-1 bg-[#18181b] rounded-lg border border-zinc-800">
@@ -264,6 +408,13 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
         </div>
         
         <div className="ml-auto flex items-center gap-1.5 pr-2">
+          <button 
+            onClick={() => setShowNetlifyConfirm(true)}
+            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
+            title="Deploy to Netlify"
+          >
+            <CloudLightning size={14} />
+          </button>
           <button 
             onClick={handleDownload}
             className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
@@ -335,12 +486,17 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
                   <button
                     key={filename}
                     onClick={() => setActiveFile(filename)}
-                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
+                    className={`w-full flex items-center justify-between px-3 py-1.5 text-xs transition-colors ${
                       activeFile === filename ? 'bg-blue-600/10 text-blue-400' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
                     }`}
                   >
-                    {getFileIcon(filename)}
-                    <span className="truncate">{filename}</span>
+                    <div className="flex items-center gap-2 truncate">
+                      {getFileIcon(filename)}
+                      <span className="truncate">{filename}</span>
+                    </div>
+                    <span className="text-[9px] opacity-50 shrink-0 ml-2">
+                      {formatBytes(new Blob([files[filename] || '']).size)}
+                    </span>
                   </button>
                 ))}
               </div>

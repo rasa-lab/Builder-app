@@ -9,6 +9,7 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [keys, setKeys] = useState({
     gemini: '',
+    openai: '',
     openrouter: '',
     grok: '',
     github: ''
@@ -61,6 +62,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               className="w-full bg-[#09090b] border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
             />
             <p className="text-xs text-zinc-500">Leave empty to use the default system key.</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-zinc-300">OpenAI API Key</label>
+            <input 
+              type="password" 
+              value={keys.openai || ''}
+              onChange={(e) => setKeys({...keys, openai: e.target.value})}
+              placeholder="sk-proj-..."
+              className="w-full bg-[#09090b] border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
+            />
           </div>
 
           <div className="space-y-2">

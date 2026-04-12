@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 
 export interface ApiKeys {
   gemini: string;
+  openai?: string;
   openrouter: string;
   grok: string;
   github?: string;
@@ -31,7 +32,9 @@ Example:
 ...
 \`\`\`
 
-2. AFTER all code blocks, provide a conversational, professional summary of what you built, the features included, and how it works. Speak in Indonesian. Act like a helpful assistant talking to the user. Do NOT provide conversational text before the code blocks.`;
+2. MANDATORY SUMMARY: AFTER ALL CODE BLOCKS ARE FINISHED, you MUST write a conversational summary in Indonesian. Explain what you just built, the features, and how to use it. 
+Example: "Halo! Saya telah membuatkan landing page untuk toko kopi Anda. Fitur yang saya tambahkan meliputi..."
+THIS SUMMARY IS REQUIRED. DO NOT FORGET IT. DO NOT PUT IT INSIDE A CODE BLOCK.`;
 
 export async function* streamWebsiteGeneration(
   contents: any[],
@@ -74,6 +77,17 @@ export async function* streamWebsiteGeneration(
     
     yield* streamOpenAIFormat(
       "https://api.x.ai/v1/chat/completions",
+      key,
+      model,
+      contents,
+      finalSystemInstruction
+    );
+  } else if (model.startsWith("gpt-")) {
+    const key = apiKeys.openai;
+    if (!key) throw new Error("OpenAI API key is missing. Please configure it in Settings.");
+    
+    yield* streamOpenAIFormat(
+      "https://api.openai.com/v1/chat/completions",
       key,
       model,
       contents,
