@@ -20,6 +20,14 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
   const [iframeKey, setIframeKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  useEffect(() => {
+    if (files && Object.keys(files).length > 0) {
+      if (!files[activeFile]) {
+        setActiveFile(Object.keys(files)[0]);
+      }
+    }
+  }, [files, activeFile]);
+
   // GitHub Modal State
   const [showGithubConfirm, setShowGithubConfirm] = useState(false);
   const [showGithubForm, setShowGithubForm] = useState(false);
@@ -58,8 +66,27 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
   };
 
   const handleDownloadApp = async () => {
+    if (projectMode === 'website') {
+      // For website, download the index.html or bundle
+      const htmlContent = files['index.html'] || '';
+      if (!htmlContent) {
+        alert("Tidak ada file index.html untuk didownload.");
+        return;
+      }
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'index.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;
+    }
+    
     if (projectMode !== 'apk') {
-      alert("Mode 'Buat APK' tidak aktif. Silakan buat proyek baru dengan mode APK untuk mendownload aplikasi.");
+      alert("Mode tidak valid.");
       return;
     }
     
@@ -68,15 +95,16 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
       zip.file(filename, content);
     });
     const zipBlob = await zip.generateAsync({ type: 'blob' });
-    const blob = new Blob([zipBlob], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'xbuilder-android-project.app';
+    a.download = 'xbuilder-app.apk';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    
+    alert("File yang diunduh berekstensi .apk, namun ini berisi source code karena kompilasi native di browser tidak didukung. Silakan gunakan Android Studio untuk build final.");
   };
 
   const handleNetlifyDeploy = async () => {
@@ -124,12 +152,13 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
         });
       }
 
-      setDeploySuccess(`Berhasil dideploy! URL: https://${netlifyDomain.replace('.netlify.app', '')}.netlify.app`);
+      setDeploySuccess(`Berhasil dideploy! Mengalihkan...`);
       setTimeout(() => {
         setShowNetlifyForm(false);
         setDeploySuccess('');
         setNetlifyDomain('');
-      }, 4000);
+        window.open(`https://${netlifyDomain.replace('.netlify.app', '')}.netlify.app`, '_blank');
+      }, 1500);
     } catch (err: any) {
       setDeployError(err.message || "Gagal deploy ke Netlify.");
     } finally {
@@ -138,7 +167,15 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
   };
 
   const handleGithubUpload = async () => {
-    const token = localStorage.getItem('xbuilder_github_token');
+    let token = '';
+    try {
+      const storedKeys = localStorage.getItem('xbuilder_api_keys');
+      if (storedKeys) {
+        const keys = JSON.parse(storedKeys);
+        token = keys.github || '';
+      }
+    } catch (e) {}
+
     if (!token) {
       setUploadError("GitHub token tidak ditemukan. Silakan tambahkan di Pengaturan.");
       return;
@@ -155,13 +192,14 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
 
     try {
       const url = await uploadToGithub(token, repoName, commitMessage, files);
-      setUploadSuccess(`Berhasil diupload! URL: ${url}`);
+      setUploadSuccess(`Berhasil diupload! Mengalihkan...`);
       setTimeout(() => {
         setShowGithubForm(false);
         setUploadSuccess('');
         setRepoName('');
         setCommitMessage('');
-      }, 3000);
+        window.open(url, '_blank');
+      }, 1500);
     } catch (err: any) {
       setUploadError(err.message || "Gagal mengupload ke GitHub.");
     } finally {
@@ -230,6 +268,20 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  const handleFullscreen = () => {
+    if (iframeRef.current) {
+      if (!document.fullscreenElement) {
+        iframeRef.current.requestFullscreen().catch(err => {
+          console.error(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-[#18181b] border-l border-zinc-800 h-full relative">
       {/* GitHub Modals */}
@@ -240,13 +292,13 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
             <div className="flex gap-3 justify-center">
               <button 
                 onClick={() => { setShowGithubConfirm(false); setShowGithubForm(true); }}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-colors"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-all active:scale-95"
               >
                 Iya
               </button>
               <button 
                 onClick={() => setShowGithubConfirm(false)}
-                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-colors"
+                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-all active:scale-95"
               >
                 Tidak
               </button>
@@ -261,8 +313,8 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
             <button onClick={() => setShowGithubForm(false)} className="absolute top-3 right-3 text-zinc-500 hover:text-zinc-300">
               <X size={16} />
             </button>
-            <h3 className="text-sm font-medium text-white mb-1 text-center">Silahkan konfirmasi berikut</h3>
-            <p className="text-xs text-zinc-400 text-center mb-4">dengan memberikan nama repisotory anda dan juga teks anda</p>
+            <h3 className="text-sm font-medium text-white mb-1 text-center">Kasih nama repisotory mu</h3>
+            <p className="text-xs text-zinc-400 text-center mb-4">Silahkan isi nama repository dan pesan commit (opsional)</p>
             
             <div className="space-y-3">
               <div>
@@ -276,7 +328,7 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1">Teks Lain (Commit)</label>
+                <label className="block text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1">Teks Lain (Opsional)</label>
                 <input 
                   type="text" 
                   value={commitMessage}
@@ -294,15 +346,15 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
               <button 
                 onClick={handleGithubUpload}
                 disabled={isUploading}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2 disabled:opacity-50"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
               >
                 {isUploading ? <Loader2 size={14} className="animate-spin" /> : null}
-                Submit
+                Iya
               </button>
               <button 
                 onClick={() => setShowGithubForm(false)}
                 disabled={isUploading}
-                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-all active:scale-95 disabled:opacity-50"
               >
                 Tidak
               </button>
@@ -319,13 +371,13 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
             <div className="flex gap-3 justify-center">
               <button 
                 onClick={() => { setShowNetlifyConfirm(false); setShowNetlifyForm(true); }}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-colors"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-all active:scale-95"
               >
                 Iya
               </button>
               <button 
                 onClick={() => setShowNetlifyConfirm(false)}
-                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-colors"
+                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-all active:scale-95"
               >
                 Tidak
               </button>
@@ -341,17 +393,17 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
               <X size={16} />
             </button>
             <h3 className="text-sm font-medium text-white mb-1 text-center">Deploy</h3>
-            <p className="text-xs text-zinc-400 text-center mb-4">Isi format ini agar bisa di deploy</p>
+            <p className="text-xs text-zinc-400 text-center mb-4">Silahkan isi nama domain untuk deploy (opsional)</p>
             
             <div className="space-y-3">
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1">Domain Name</label>
+                <label className="block text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1">Nama Domain</label>
                 <input 
                   type="text" 
                   value={netlifyDomain}
                   onChange={(e) => setNetlifyDomain(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-blue-500"
-                  placeholder="contoh: test-111.netlify.app"
+                  placeholder="contoh: test-111"
                 />
               </div>
             </div>
@@ -363,7 +415,7 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
               <button 
                 onClick={handleNetlifyDeploy}
                 disabled={isDeploying}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2 disabled:opacity-50"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
               >
                 {isDeploying ? <Loader2 size={14} className="animate-spin" /> : null}
                 Iya
@@ -371,7 +423,7 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
               <button 
                 onClick={() => setShowNetlifyForm(false)}
                 disabled={isDeploying}
-                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-all active:scale-95 disabled:opacity-50"
               >
                 Tidak
               </button>
@@ -410,43 +462,44 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
         <div className="ml-auto flex items-center gap-1.5 pr-2">
           <button 
             onClick={() => setShowNetlifyConfirm(true)}
-            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
+            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95"
             title="Deploy to Netlify"
           >
             <CloudLightning size={14} />
           </button>
           <button 
+            onClick={handleDownloadApp}
+            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95"
+            title={projectMode === 'website' ? "Download HTML" : "Download APK (.app)"}
+          >
+            <Smartphone size={14} />
+          </button>
+          <button 
             onClick={handleDownload}
-            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
+            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95"
             title="Download Project ZIP"
           >
             <Download size={14} />
           </button>
           <button 
             onClick={() => setShowGithubConfirm(true)}
-            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
+            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95"
             title="Upload to GitHub"
           >
             <Github size={14} />
           </button>
-          <button 
-            onClick={handleDownloadApp}
-            className={`p-1.5 rounded-md transition-colors ${projectMode === 'apk' ? 'text-emerald-400 hover:text-emerald-300 hover:bg-zinc-800' : 'text-zinc-600 cursor-not-allowed'}`}
-            title={projectMode === 'apk' ? "Download Android Project" : "Hanya tersedia di mode APK"}
-          >
-            <Smartphone size={14} />
-          </button>
           {activeTab === 'preview' && (
             <button 
               onClick={handleRefresh}
-              className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
+              className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95"
               title="Refresh Preview"
             >
               <RefreshCw size={14} />
             </button>
           )}
           <button 
-            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
+            onClick={handleFullscreen}
+            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95"
             title="Expand"
           >
             <Maximize2 size={14} />

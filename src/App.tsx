@@ -132,7 +132,7 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
           </p>
           <button 
             onClick={onClose}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-all active:scale-95 text-sm"
           >
             Mulai Sekarang
           </button>
@@ -164,6 +164,7 @@ export default function App() {
   // Mobile & Modal State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chat' | 'preview'>('chat');
 
   const initialLoadRef = useRef(true);
@@ -316,7 +317,40 @@ export default function App() {
       const storedKeys = localStorage.getItem('xbuilder_api_keys');
       const apiKeys: ApiKeys = storedKeys ? JSON.parse(storedKeys) : { gemini: '', openrouter: '', grok: '' };
 
-      const stream = streamWebsiteGeneration(contents, selectedModel, apiKeys, files || {}, projectMode);
+      let promptText = sanitizedText;
+      if (projectMode === 'apk') {
+        try {
+          const apkConfigStr = localStorage.getItem('apk_config');
+          if (apkConfigStr) {
+            const apkConfig = JSON.parse(apkConfigStr);
+            promptText += `\n\n[SYSTEM: User has configured the APK with the following settings:\n- Package Name: ${apkConfig.packageName}\n- Mode: ${apkConfig.isOnline ? 'Online' : 'Offline'}\n- Permissions: ${apkConfig.permissions.join(', ')}\n- Has Custom Icon: ${!!apkConfig.icon}\n- Has Boot Video: ${!!apkConfig.bootVideo}\nPlease incorporate these settings into the AndroidManifest.xml, build.gradle, and Java/Kotlin code accordingly.]`;
+          }
+        } catch (e) {
+          console.error("Failed to parse apk_config", e);
+        }
+      }
+
+      // Update the last user message with the modified promptText for the AI, but keep the UI clean
+      const contentsForAI = newMessages.map((m, index) => {
+        const parts: any[] = [{ text: index === newMessages.length - 1 ? promptText : m.text }];
+        if (m.attachments) {
+          m.attachments.forEach(att => {
+            if (att.data.startsWith('data:')) {
+              parts.push({
+                inlineData: {
+                  data: att.data.split(',')[1],
+                  mimeType: att.type || 'application/octet-stream'
+                }
+              });
+            } else {
+              parts.push({ text: `\n\nAttached File (${att.name}):\n${att.data}` });
+            }
+          });
+        }
+        return { role: m.role, parts };
+      });
+
+      const stream = streamWebsiteGeneration(contentsForAI, selectedModel, apiKeys, files || {}, projectMode);
       let fullResponse = "";
       
       const isErrorFix = text.toLowerCase().match(/error|bug|fix|rusak|salah|perbaiki|gagal/);
@@ -371,12 +405,14 @@ export default function App() {
 
       let newFiles = { ...(files || {}) };
       let hasStartedCode = false;
+      const startTime = Date.now();
 
       for await (const chunk of stream) {
         fullResponse += chunk;
         
+        const elapsed = Date.now() - startTime;
         const progressIndex = Math.min(
-          Math.floor(fullResponse.length / 300), 
+          Math.floor(elapsed / 2500), 
           THINKING_STEPS.length - 1
         );
 
@@ -393,16 +429,20 @@ export default function App() {
           hasStartedCode = true;
         }
 
-        const fileRegex = /```(?:[a-z]+)?\s*(?:<!--|#|\/\/)?\s*filename:\s*([^\n]+)\n([\s\S]*?)```/gi;
+        // Match completed or partial blocks with filename
+        // Format 1: ```html filename: index.html
+        // Format 2: ```html\n<!-- filename: index.html -->
+        // Format 3: ```html\n/* filename: index.html */
+        const fileRegex = /```(?:[a-zA-Z0-9]+)?\s*(?:<!--|\/\*|#|\/\/)?\s*filename:\s*([^\n`]+?)(?:-->|\*\/)?\s*\n([\s\S]*?)(?:```|$)/gi;
         let tempFiles = { ...(files || {}) };
         let hasFiles = false;
 
-        const completedBlocks = [...fullResponse.matchAll(fileRegex)];
-        for (const m of completedBlocks) {
+        const blocks = [...fullResponse.matchAll(fileRegex)];
+        for (const m of blocks) {
           const filename = m[1].trim();
           const content = m[2].trim();
           if (content === '') {
-            delete tempFiles[filename];
+            tempFiles[filename] = '';
           } else {
             tempFiles[filename] = content;
           }
@@ -410,7 +450,7 @@ export default function App() {
         }
 
         if (!hasFiles && projectMode === 'website') {
-          const htmlMatch = fullResponse.match(/```(?:html)?\n([\s\S]*?)(```|$)/i);
+          const htmlMatch = fullResponse.match(/```(?:html)?\n([\s\S]*?)(?:```|$)/i);
           if (htmlMatch && htmlMatch[1]) {
             tempFiles['index.html'] = htmlMatch[1];
           }
@@ -455,13 +495,29 @@ export default function App() {
     }
   };
 
-  const handleClearChat = () => {
+  const handleNewProject = () => {
     setMessages([]);
     setFiles({
       'index.html': '<!DOCTYPE html>\n<html>\n<head>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body>\n  <div class="flex items-center justify-center h-screen bg-[#09090b] text-zinc-300 font-sans">\n    <div class="text-center">\n      <h1 class="text-3xl font-semibold mb-2 text-blue-500">Preview</h1>\n      <p class="text-zinc-400">Describe what you want to build in the chat.</p>\n    </div>\n  </div>\n</body>\n</html>'
     });
     setCurrentProjectId(null);
     setProjectMode('website');
+  };
+
+  const handleClearChat = () => {
+    setShowClearConfirm(true);
+  };
+
+  const confirmClearChat = async () => {
+    if (currentProjectId && user) {
+      try {
+        await deleteDoc(doc(db, 'projects', currentProjectId));
+      } catch (error) {
+        console.error("Error deleting project:", error);
+      }
+    }
+    handleNewProject();
+    setShowClearConfirm(false);
   };
 
   const loadProject = (proj: Project) => {
@@ -509,6 +565,7 @@ export default function App() {
           onClose={() => setIsSidebarOpen(false)} 
           onOpenSettings={() => setIsSettingsOpen(true)} 
           onClearChat={handleClearChat}
+          onNewProject={handleNewProject}
         />
       </div>
 
@@ -537,7 +594,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className={`flex-1 overflow-hidden md:w-1/2 lg:w-[45%] ${mobileTab === 'chat' ? 'block' : 'hidden md:block'}`}>
+        <div className={`flex-1 overflow-hidden md:w-1/2 lg:w-[45%] flex flex-col ${mobileTab === 'chat' ? 'flex' : 'hidden md:flex'}`}>
           <ChatPane 
             messages={messages} 
             onSendMessage={handleSendMessage} 
@@ -549,7 +606,7 @@ export default function App() {
           />
         </div>
 
-        <div className={`flex-1 overflow-hidden md:w-1/2 lg:w-[55%] ${mobileTab === 'preview' ? 'block' : 'hidden md:block'}`}>
+        <div className={`flex-1 overflow-hidden md:w-1/2 lg:w-[55%] flex flex-col ${mobileTab === 'preview' ? 'flex' : 'hidden md:flex'}`}>
           <PreviewPane 
             files={files} 
             onChangeFiles={setFiles} 
@@ -562,6 +619,34 @@ export default function App() {
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
       />
+
+      {/* Clear Chat Confirmation Modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#18181b] border border-zinc-800 rounded-xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={24} />
+              </div>
+              <p className="text-sm text-zinc-200">Anda yakin untuk menghapus semua chat anda?</p>
+            </div>
+            <div className="p-4 border-t border-zinc-800 bg-[#09090b] flex gap-3">
+              <button 
+                onClick={confirmClearChat}
+                className="flex-1 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-500 transition-all active:scale-95"
+              >
+                Iya
+              </button>
+              <button 
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 py-2 rounded-lg text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-all active:scale-95"
+              >
+                Tidak
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

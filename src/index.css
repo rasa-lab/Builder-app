@@ -26,3 +26,31 @@
     @apply text-[#8ab4f8] hover:underline;
   }
 }
+
+/* Light Theme Variables */
+:root.light-theme {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f4f5;
+  --bg-tertiary: #e4e4e7;
+  --text-primary: #18181b;
+  --text-secondary: #3f3f46;
+  --text-tertiary: #71717a;
+  --border-color: #e4e4e7;
+}
+
+/* Apply light theme variables to specific components if needed, or rely on Tailwind's dark mode strategy if configured */
+/* For this implementation, we will use a simple CSS variable approach for key structural elements if requested, 
+   but since the app uses hardcoded tailwind colors (e.g., bg-[#09090b]), a full light theme requires extensive refactoring.
+   We will add a basic filter approach for a quick light mode as a proof of concept, or we can refactor the main components. */
+
+:root.light-theme body {
+  filter: invert(1) hue-rotate(180deg);
+  background-color: #09090b; /* Keep original background so invert makes it white */
+}
+
+/* Prevent images and videos from being inverted */
+:root.light-theme img,
+:root.light-theme video,
+:root.light-theme iframe {
+  filter: invert(1) hue-rotate(180deg);
+}

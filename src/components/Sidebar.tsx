@@ -12,9 +12,12 @@ interface SidebarProps {
   onClose?: () => void;
   onOpenSettings: () => void;
   onClearChat: () => void;
+  onNewProject: () => void;
 }
 
-export function Sidebar({ projects, currentProjectId, onLoadProject, onDeleteProject, onRenameProject, onClose, onOpenSettings, onClearChat }: SidebarProps) {
+export function Sidebar({ projects, currentProjectId, onLoadProject, onDeleteProject, onRenameProject, onClose, onOpenSettings, onClearChat, onNewProject }: SidebarProps) {
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -39,8 +42,8 @@ export function Sidebar({ projects, currentProjectId, onLoadProject, onDeletePro
       
       <div className="p-2">
         <button 
-          onClick={onClearChat}
-          className="w-full flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg transition-colors font-medium text-xs shadow-sm"
+          onClick={onNewProject}
+          className="w-full flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg transition-all active:scale-95 font-medium text-xs shadow-sm"
         >
           <Plus size={16} />
           New Project
@@ -69,21 +72,21 @@ export function Sidebar({ projects, currentProjectId, onLoadProject, onDeletePro
       <div className="p-2 border-t border-zinc-800 space-y-1">
         <button 
           onClick={onClearChat}
-          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-red-400"
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-all active:scale-95 text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-red-400"
         >
           <Trash2 size={14} />
           Clear Chat
         </button>
         <button 
           onClick={onOpenSettings}
-          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-all active:scale-95 text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
         >
           <Settings size={14} />
           Settings
         </button>
         <button 
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-all active:scale-95 text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
         >
           <LogOut size={14} />
           Sign Out
@@ -124,7 +127,7 @@ function SidebarItem({ project, active = false, onClick, onDelete, onRename }: {
         </form>
       ) : (
         <div 
-          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md transition-colors text-xs font-medium group/item ${active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
+          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md transition-all active:scale-[0.98] text-xs font-medium group/item ${active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
         >
           <button onClick={onClick} className="flex items-center gap-2 flex-1 truncate text-left">
             <Folder size={14} className="shrink-0" />
@@ -134,14 +137,14 @@ function SidebarItem({ project, active = false, onClick, onDelete, onRename }: {
           <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity shrink-0 ml-2">
             <button 
               onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-              className="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-all active:scale-95"
               title="Rename"
             >
               <Edit2 size={12} />
             </button>
             <button 
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              className="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-red-400 transition-colors"
+              className="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-red-400 transition-all active:scale-95"
               title="Delete"
             >
               <Trash2 size={12} />

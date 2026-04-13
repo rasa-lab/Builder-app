@@ -6,6 +6,15 @@ export interface ApiKeys {
   openrouter: string;
   grok: string;
   github?: string;
+  customEndpoint?: string;
+  enableOpenAI?: boolean;
+  deepseek?: string;
+  enableDeepSeek?: boolean;
+  qwen?: string;
+  enableQwen?: boolean;
+  enableOpenRouter?: boolean;
+  enableGrok?: boolean;
+  enableCustom?: boolean;
 }
 
 const SYSTEM_INSTRUCTION = `You are an expert full-stack developer, UI/UX designer, and software architect. 
@@ -17,10 +26,15 @@ CRITICAL REQUIREMENTS FOR "SMART" GENERATION:
 2. CODE QUALITY: Write clean, modular, and maintainable code. Use best practices, handle errors gracefully, and add necessary comments.
 3. COMPLETENESS: Do not leave placeholders like "<!-- content here -->". Provide a fully working, interactive prototype.
 4. LOGIC: If the user asks for complex logic (e.g., backend, database, state management), implement it robustly.
-5. UPDATING FILES: You will be provided with the current files. You can modify them by providing the new content. To DELETE a file, provide the filename but leave the content completely empty.
+5. SECURITY: Implement basic security measures. Prevent XSS by sanitizing inputs. If backend is requested, include rate limiting (to mitigate DDoS/scraping) and proper validation.
+6. UPDATING FILES: You will be provided with the current files. You can modify them by providing the new content. To DELETE a file, provide the filename but leave the content completely empty.
 
-IMPORTANT FORMAT:
-1. FIRST, provide the code for each file. You MUST use the following format for EVERY file:
+CRITICAL FORMAT INSTRUCTIONS (YOU MUST FOLLOW THIS EXACTLY):
+1. MANDATORY SUMMARY FIRST: You MUST ALWAYS start your response with a friendly, conversational summary in Indonesian. Explain what you are going to build, the features, and how to use it. 
+Example: "Halo! Saya akan membuatkan aplikasi kalkulator untuk Anda. Fitur yang ditambahkan meliputi..."
+DO NOT PUT THIS SUMMARY IN A CODE BLOCK. IT MUST BE NORMAL TEXT AT THE VERY BEGINNING.
+
+2. CODE BLOCKS SECOND: AFTER the summary, provide the code for each file using this exact format:
 
 \`\`\`[language] filename: [path/to/file.ext]
 [file content here]
@@ -31,10 +45,7 @@ Example:
 <!DOCTYPE html>
 ...
 \`\`\`
-
-2. MANDATORY SUMMARY: AFTER ALL CODE BLOCKS ARE FINISHED, you MUST write a conversational summary in Indonesian. Explain what you just built, the features, and how to use it. 
-Example: "Halo! Saya telah membuatkan landing page untuk toko kopi Anda. Fitur yang saya tambahkan meliputi..."
-THIS SUMMARY IS REQUIRED. DO NOT FORGET IT. DO NOT PUT IT INSIDE A CODE BLOCK.`;
+`;
 
 export async function* streamWebsiteGeneration(
   contents: any[],
@@ -90,6 +101,40 @@ export async function* streamWebsiteGeneration(
       "https://api.openai.com/v1/chat/completions",
       key,
       model,
+      contents,
+      finalSystemInstruction
+    );
+  } else if (model.startsWith("deepseek-")) {
+    const key = apiKeys.deepseek;
+    if (!key) throw new Error("DeepSeek API key is missing. Please configure it in Settings.");
+    
+    yield* streamOpenAIFormat(
+      "https://api.deepseek.com/v1/chat/completions",
+      key,
+      model,
+      contents,
+      finalSystemInstruction
+    );
+  } else if (model.startsWith("qwen-")) {
+    const key = apiKeys.qwen;
+    if (!key) throw new Error("Qwen API key is missing. Please configure it in Settings.");
+    
+    yield* streamOpenAIFormat(
+      "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      key,
+      model,
+      contents,
+      finalSystemInstruction
+    );
+  } else if (model.startsWith("custom-")) {
+    const key = apiKeys.openai || ""; // Use OpenAI key if provided, or empty
+    const endpoint = apiKeys.customEndpoint;
+    if (!endpoint) throw new Error("Custom API Endpoint is missing. Please configure it in Settings.");
+    
+    yield* streamOpenAIFormat(
+      endpoint,
+      key,
+      model.replace("custom-", ""),
       contents,
       finalSystemInstruction
     );

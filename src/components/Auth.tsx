@@ -77,13 +77,13 @@ export function Auth() {
           <div className="flex gap-3">
             <button 
               onClick={() => saveGithubToken(true)}
-              className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium py-2.5 rounded-xl transition-colors text-sm"
+              className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium py-2.5 rounded-xl transition-all active:scale-95 text-sm"
             >
               Lewati
             </button>
             <button 
               onClick={() => saveGithubToken(false)}
-              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-all active:scale-95 text-sm"
             >
               Iya
             </button>
@@ -116,7 +116,7 @@ export function Auth() {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full bg-white hover:bg-zinc-200 text-zinc-900 font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-3"
+            className="w-full bg-white hover:bg-zinc-200 text-zinc-900 font-medium py-3 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-3"
           >
             {loading ? (
               <Loader2 size={20} className="animate-spin" />
@@ -147,7 +147,7 @@ export function Auth() {
           <button
             onClick={handleGithubLogin}
             disabled={loading}
-            className="w-full bg-[#24292e] hover:bg-[#2f363d] text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-3"
+            className="w-full bg-[#24292e] hover:bg-[#2f363d] text-white font-medium py-3 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-3"
           >
             {loading ? (
               <Loader2 size={20} className="animate-spin" />
