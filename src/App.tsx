@@ -3,10 +3,12 @@ import { Sidebar } from './components/Sidebar';
 import { ChatPane } from './components/ChatPane';
 import { PreviewPane } from './components/PreviewPane';
 import { SettingsModal } from './components/SettingsModal';
+import { AppSettingsModal } from './components/AppSettingsModal';
+import { AdminPanelModal } from './components/AdminPanelModal';
 import { Auth } from './components/Auth';
 import { streamWebsiteGeneration, ApiKeys } from './lib/api';
 import { auth, db, onSnapshot, doc, collection, query, where, orderBy, setDoc, deleteDoc, serverTimestamp } from './lib/firebase';
-import { Menu, Loader2, Code2, X } from 'lucide-react';
+import { Menu, Loader2, Code2, X, Settings, Trash2, MessageSquare, LayoutTemplate, Columns, Maximize, KeyRound, ShieldAlert } from 'lucide-react';
 
 export type ActionLog = {
   status: 'pending' | 'active' | 'done';
@@ -119,7 +121,7 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-[#18181b] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col relative animate-in fade-in zoom-in duration-300">
-        <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors">
+        <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-all active:scale-95">
           <X size={20} />
         </button>
         <div className="p-6 text-center flex flex-col items-center">
@@ -163,9 +165,42 @@ export default function App() {
   
   // Mobile & Modal State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
+  const [isAppSettingsOpen, setIsAppSettingsOpen] = useState(false);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chat' | 'preview'>('chat');
+  const [isDesktopMode, setIsDesktopMode] = useState(false);
+
+  const [enableOpenAI, setEnableOpenAI] = useState(false);
+  const [enableOpenRouter, setEnableOpenRouter] = useState(false);
+  const [enableGrok, setEnableGrok] = useState(false);
+  const [enableDeepSeek, setEnableDeepSeek] = useState(false);
+  const [enableQwen, setEnableQwen] = useState(false);
+  const [enableCustom, setEnableCustom] = useState(false);
+
+  useEffect(() => {
+    const loadKeys = () => {
+      try {
+        const storedKeys = localStorage.getItem('xbuilder_api_keys');
+        if (storedKeys) {
+          const keys = JSON.parse(storedKeys);
+          setEnableOpenAI(keys.enableOpenAI === true);
+          setEnableOpenRouter(keys.enableOpenRouter === true);
+          setEnableGrok(keys.enableGrok === true);
+          setEnableDeepSeek(keys.enableDeepSeek === true);
+          setEnableQwen(keys.enableQwen === true);
+          setEnableCustom(keys.enableCustom === true);
+        }
+      } catch (e) {
+        console.error("Failed to parse stored keys", e);
+      }
+    };
+
+    loadKeys();
+    window.addEventListener('api_keys_updated', loadKeys);
+    return () => window.removeEventListener('api_keys_updated', loadKeys);
+  }, []);
 
   const initialLoadRef = useRef(true);
 
@@ -563,61 +598,106 @@ export default function App() {
           onDeleteProject={handleDeleteProject}
           onRenameProject={handleRenameProject}
           onClose={() => setIsSidebarOpen(false)} 
-          onOpenSettings={() => setIsSettingsOpen(true)} 
           onClearChat={handleClearChat}
           onNewProject={handleNewProject}
+          onOpenSettings={() => {
+            setIsSidebarOpen(false);
+            setIsAppSettingsOpen(true);
+          }}
         />
       </div>
 
-      <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
-        <div className="md:hidden flex items-center justify-between p-3 border-b border-zinc-800 bg-[#09090b] shrink-0">
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors"
-          >
-            <Menu size={20} />
-          </button>
-          
-          <div className="flex gap-1 bg-[#18181b] p-1 rounded-lg border border-zinc-800">
-            <button 
-              onClick={() => setMobileTab('chat')} 
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${mobileTab === 'chat' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-400'}`}
-            >
-              Chat
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Unified Top Header - Row 1 */}
+        <div className="h-14 border-b border-zinc-800 bg-[#09090b] shrink-0 flex items-center justify-between px-3 relative">
+          {/* Left: Sidebar Toggle & Title */}
+          <div className="flex items-center gap-2">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-all active:scale-95">
+              <Menu size={20} />
             </button>
-            <button 
-              onClick={() => setMobileTab('preview')} 
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${mobileTab === 'preview' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-400'}`}
-            >
-              Preview
+            <span className="text-lg font-black tracking-widest bg-gradient-to-b from-red-500 to-orange-500 bg-clip-text text-transparent">
+              ᙭ ᗷᑌIᒪᗪᗴᖇ
+            </span>
+          </div>
+
+          {/* Right Side Controls */}
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setIsDesktopMode(!isDesktopMode)} className={`hidden md:flex p-1.5 rounded-md transition-all active:scale-95 ${isDesktopMode ? 'bg-blue-600/20 text-blue-400' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800'}`} title="Split View">
+              <Columns size={16} />
+            </button>
+            <button onClick={() => {
+              if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+              } else {
+                document.exitFullscreen();
+              }
+            }} className="hidden md:flex p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95" title="Full Screen">
+              <Maximize size={16} />
+            </button>
+            <div className="w-px h-4 bg-zinc-800 mx-1 hidden md:block"></div>
+            <button onClick={() => setIsAdminPanelOpen(true)} className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-all active:scale-95" title="Admin Panel">
+              <ShieldAlert size={18} />
+            </button>
+            <button onClick={() => setIsApiSettingsOpen(true)} className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95" title="API Settings">
+              <KeyRound size={18} />
             </button>
           </div>
         </div>
 
-        <div className={`flex-1 overflow-hidden md:w-1/2 lg:w-[45%] flex flex-col ${mobileTab === 'chat' ? 'flex' : 'hidden md:flex'}`}>
-          <ChatPane 
-            messages={messages} 
-            onSendMessage={handleSendMessage} 
-            isGenerating={isGenerating} 
-            selectedModel={selectedModel}
-            onModelChange={setSelectedModel}
-            projectMode={projectMode}
-            onModeChange={setProjectMode}
-          />
+        <div className="flex flex-1 overflow-hidden relative">
+          <div className={`flex-1 overflow-hidden ${isDesktopMode ? 'md:w-1/2 lg:w-[45%] md:border-r border-zinc-800' : 'w-full'} flex flex-col ${!isDesktopMode && mobileTab !== 'chat' ? 'hidden md:flex' : 'flex'}`}>
+            <ChatPane 
+              messages={messages} 
+              onSendMessage={handleSendMessage} 
+              isGenerating={isGenerating} 
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
+              projectMode={projectMode}
+              onModeChange={setProjectMode}
+            />
+          </div>
+
+          <div className={`flex-1 overflow-hidden ${isDesktopMode ? 'md:w-1/2 lg:w-[55%]' : 'w-full'} flex flex-col ${!isDesktopMode && mobileTab !== 'preview' ? 'hidden md:flex' : 'flex'}`}>
+            <PreviewPane 
+              files={files} 
+              onChangeFiles={setFiles} 
+              projectMode={projectMode}
+            />
+          </div>
         </div>
 
-        <div className={`flex-1 overflow-hidden md:w-1/2 lg:w-[55%] flex flex-col ${mobileTab === 'preview' ? 'flex' : 'hidden md:flex'}`}>
-          <PreviewPane 
-            files={files} 
-            onChangeFiles={setFiles} 
-            projectMode={projectMode}
-          />
+        {/* Mobile Bottom Navigation */}
+        <div className="md:hidden h-14 border-t border-zinc-800 bg-[#09090b] flex items-center justify-around shrink-0 pb-safe">
+          <button 
+            onClick={() => setMobileTab('chat')} 
+            className={`flex flex-col items-center justify-center w-full h-full transition-colors ${mobileTab === 'chat' ? 'text-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            <MessageSquare size={20} />
+            <span className="text-[10px] mt-1 font-medium">Chat</span>
+          </button>
+          <button 
+            onClick={() => setMobileTab('preview')} 
+            className={`flex flex-col items-center justify-center w-full h-full transition-colors ${mobileTab === 'preview' ? 'text-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            <LayoutTemplate size={20} />
+            <span className="text-[10px] mt-1 font-medium">Preview</span>
+          </button>
         </div>
       </div>
 
       <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
+        isOpen={isApiSettingsOpen} 
+        onClose={() => setIsApiSettingsOpen(false)} 
+      />
+
+      <AppSettingsModal 
+        isOpen={isAppSettingsOpen} 
+        onClose={() => setIsAppSettingsOpen(false)} 
+      />
+
+      <AdminPanelModal 
+        isOpen={isAdminPanelOpen} 
+        onClose={() => setIsAdminPanelOpen(false)} 
       />
 
       {/* Clear Chat Confirmation Modal */}

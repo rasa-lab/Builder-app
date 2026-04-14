@@ -109,6 +109,12 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    const handleOpenApkConfig = () => setShowApkConfig(true);
+    window.addEventListener('open_apk_config', handleOpenApkConfig);
+    return () => window.removeEventListener('open_apk_config', handleOpenApkConfig);
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if ((input.trim() || attachments.length > 0) && !isGenerating) {
@@ -216,67 +222,6 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0e0e11] border-r border-zinc-800">
-      {/* Top Bar */}
-      <div className="h-12 border-b border-zinc-800 flex items-center px-3 justify-between bg-[#09090b] shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-xs text-zinc-200">Untitled Project</span>
-          <span className="bg-zinc-800 text-zinc-400 text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider font-semibold">Chat</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 text-xs text-zinc-400 mr-1">
-            <select 
-              value={selectedModel}
-              onChange={(e) => onModelChange(e.target.value)}
-              className="bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 outline-none text-zinc-200 font-medium cursor-pointer hover:border-zinc-700 transition-colors text-[11px]"
-            >
-              <optgroup label="Gemini">
-                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
-                <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Hemat)</option>
-                <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash Lite (Sangat Hemat)</option>
-              </optgroup>
-              {enableOpenAI && (
-                <optgroup label="OpenAI">
-                  <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                  <option value="gpt-4o">GPT-4o</option>
-                  <option value="gpt-4o-mini">GPT-4o Mini</option>
-                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                </optgroup>
-              )}
-              {enableOpenRouter && (
-                <optgroup label="OpenRouter">
-                  <option value="anthropic/claude-3.7-sonnet">Claude 3.7 Sonnet</option>
-                  <option value="openai/gpt-4o">GPT-4o (OpenRouter)</option>
-                </optgroup>
-              )}
-              {enableGrok && (
-                <optgroup label="xAI">
-                  <option value="grok-2-latest">Grok 2</option>
-                </optgroup>
-              )}
-              {enableDeepSeek && (
-                <optgroup label="DeepSeek">
-                  <option value="deepseek-coder">DeepSeek Coder</option>
-                  <option value="deepseek-chat">DeepSeek Chat</option>
-                </optgroup>
-              )}
-              {enableQwen && (
-                <optgroup label="Qwen">
-                  <option value="qwen-coder-plus">Qwen Coder Plus</option>
-                  <option value="qwen-coder-turbo">Qwen Coder Turbo</option>
-                </optgroup>
-              )}
-              {enableCustom && (
-                <optgroup label="Custom API">
-                  <option value="custom-gpt-4o">Custom Endpoint (GPT-4o)</option>
-                  <option value="custom-claude-3-opus">Custom Endpoint (Claude)</option>
-                </optgroup>
-              )}
-            </select>
-          </div>
-        </div>
-      </div>
-
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-3 md:p-4 lg:p-6 flex flex-col gap-4">
         {messages.length === 0 ? (
@@ -423,13 +368,52 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
           </div>
         )}
         <div className="max-w-4xl mx-auto relative w-full">
+          <div className="mb-2 flex justify-end">
+            <select 
+              value={selectedModel}
+              onChange={(e) => onModelChange(e.target.value)}
+              className="bg-[#18181b] border border-zinc-800 rounded-md px-2 py-1 outline-none text-zinc-400 font-medium cursor-pointer hover:border-zinc-700 transition-colors text-[10px] max-w-[200px] truncate"
+            >
+              <optgroup label="Gemini">
+                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+                <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Hemat)</option>
+                <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash Lite</option>
+              </optgroup>
+              <optgroup label="OpenAI">
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              </optgroup>
+              <optgroup label="OpenRouter">
+                <option value="anthropic/claude-3.7-sonnet">Claude 3.7 Sonnet</option>
+                <option value="openai/gpt-4o">GPT-4o (OpenRouter)</option>
+              </optgroup>
+              <optgroup label="xAI">
+                <option value="grok-2-latest">Grok 2</option>
+              </optgroup>
+              <optgroup label="DeepSeek">
+                <option value="deepseek-coder">DeepSeek Coder</option>
+                <option value="deepseek-chat">DeepSeek Chat</option>
+              </optgroup>
+              <optgroup label="Qwen">
+                <option value="qwen-coder-plus">Qwen Coder Plus</option>
+                <option value="qwen-coder-turbo">Qwen Coder Turbo</option>
+              </optgroup>
+              <optgroup label="Custom API">
+                <option value="custom-gpt-4o">Custom Endpoint (GPT-4o)</option>
+                <option value="custom-claude-3-opus">Custom Endpoint (Claude)</option>
+              </optgroup>
+            </select>
+          </div>
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2 p-2 bg-[#18181b] border border-zinc-800 rounded-lg">
               {attachments.map((att, i) => (
                 <div key={i} className="flex items-center gap-1 bg-zinc-800 px-2 py-1 rounded text-[10px] text-zinc-300">
                   <Paperclip size={10} />
                   <span className="truncate max-w-[100px]">{att.name}</span>
-                  <button onClick={() => removeAttachment(i)} className="hover:text-red-400 ml-1">
+                  <button onClick={() => removeAttachment(i)} className="hover:text-red-400 ml-1 transition-all active:scale-95">
                     <X size={10} />
                   </button>
                 </div>

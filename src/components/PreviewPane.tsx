@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import Editor, { loader } from '@monaco-editor/react';
+import Editor from '@monaco-editor/react';
 import { Code, LayoutTemplate, Maximize2, RefreshCw, Download, Github, FileCode2, FileJson, FileType2, X, Loader2, Smartphone, CloudLightning } from 'lucide-react';
 import JSZip from 'jszip';
 import { uploadToGithub } from '../lib/github';
 import { ProjectMode } from '../App';
-
-// Fix Monaco worker error
-loader.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs' } });
 
 interface PreviewPaneProps {
   files: Record<string, string>;
@@ -22,7 +19,7 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
 
   useEffect(() => {
     if (files && Object.keys(files).length > 0) {
-      if (!files[activeFile]) {
+      if (!activeFile || !files[activeFile]) {
         setActiveFile(Object.keys(files)[0]);
       }
     }
@@ -44,6 +41,12 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState('');
   const [deploySuccess, setDeploySuccess] = useState('');
+
+  useEffect(() => {
+    const handleOpenNetlifyDeploy = () => setShowNetlifyConfirm(true);
+    window.addEventListener('open_netlify_deploy', handleOpenNetlifyDeploy);
+    return () => window.removeEventListener('open_netlify_deploy', handleOpenNetlifyDeploy);
+  }, []);
 
   const handleRefresh = () => {
     setIframeKey(prev => prev + 1);
@@ -108,11 +111,6 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
   };
 
   const handleNetlifyDeploy = async () => {
-    if (!netlifyDomain.trim()) {
-      setDeployError("Domain harus diisi.");
-      return;
-    }
-
     setIsDeploying(true);
     setDeployError('');
     setDeploySuccess('');
@@ -138,11 +136,12 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
       }
 
       const data = await response.json();
+      let finalUrl = data.ssl_url || data.url;
       
       // Update site name if provided
       if (netlifyDomain.trim()) {
         const siteName = netlifyDomain.replace('.netlify.app', '');
-        await fetch(`https://api.netlify.com/api/v1/sites/${data.id}`, {
+        const patchResponse = await fetch(`https://api.netlify.com/api/v1/sites/${data.id}`, {
           method: 'PATCH',
           headers: {
             'Authorization': 'Bearer nfp_AeUb929nKWme43zsgNMvGmPXNUJYAPe1388b',
@@ -150,6 +149,10 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
           },
           body: JSON.stringify({ name: siteName })
         });
+        
+        if (patchResponse.ok) {
+           finalUrl = `https://${siteName}.netlify.app`;
+        }
       }
 
       setDeploySuccess(`Berhasil dideploy! Mengalihkan...`);
@@ -157,7 +160,7 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
         setShowNetlifyForm(false);
         setDeploySuccess('');
         setNetlifyDomain('');
-        window.open(`https://${netlifyDomain.replace('.netlify.app', '')}.netlify.app`, '_blank');
+        window.open(finalUrl, '_blank');
       }, 1500);
     } catch (err: any) {
       setDeployError(err.message || "Gagal deploy ke Netlify.");
@@ -206,13 +209,6 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
       setIsUploading(false);
     }
   };
-
-  useEffect(() => {
-    if (files && !files[activeFile]) {
-      const firstFile = Object.keys(files || {})[0];
-      if (firstFile) setActiveFile(firstFile);
-    }
-  }, [files, activeFile]);
 
   useEffect(() => {
     if (activeTab === 'preview' && iframeRef.current && projectMode === 'website') {
@@ -310,7 +306,7 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
       {showGithubForm && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-5 w-[350px] shadow-2xl relative">
-            <button onClick={() => setShowGithubForm(false)} className="absolute top-3 right-3 text-zinc-500 hover:text-zinc-300">
+            <button onClick={() => setShowGithubForm(false)} className="absolute top-3 right-3 text-zinc-500 hover:text-zinc-300 transition-all active:scale-95">
               <X size={16} />
             </button>
             <h3 className="text-sm font-medium text-white mb-1 text-center">Kasih nama repisotory mu</h3>
@@ -349,14 +345,14 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
               >
                 {isUploading ? <Loader2 size={14} className="animate-spin" /> : null}
-                Iya
+                Upload
               </button>
               <button 
                 onClick={() => setShowGithubForm(false)}
                 disabled={isUploading}
                 className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-all active:scale-95 disabled:opacity-50"
               >
-                Tidak
+                Batal
               </button>
             </div>
           </div>
@@ -389,11 +385,11 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
       {showNetlifyForm && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-5 w-[350px] shadow-2xl relative">
-            <button onClick={() => setShowNetlifyForm(false)} className="absolute top-3 right-3 text-zinc-500 hover:text-zinc-300">
+            <button onClick={() => setShowNetlifyForm(false)} className="absolute top-3 right-3 text-zinc-500 hover:text-zinc-300 transition-all active:scale-95">
               <X size={16} />
             </button>
             <h3 className="text-sm font-medium text-white mb-1 text-center">Deploy</h3>
-            <p className="text-xs text-zinc-400 text-center mb-4">Silahkan isi nama domain untuk deploy (opsional)</p>
+            <p className="text-xs text-zinc-400 text-center mb-4">Kasih nama domain mu (opsional)</p>
             
             <div className="space-y-3">
               <div>
@@ -418,14 +414,14 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
               >
                 {isDeploying ? <Loader2 size={14} className="animate-spin" /> : null}
-                Iya
+                Deploy
               </button>
               <button 
                 onClick={() => setShowNetlifyForm(false)}
                 disabled={isDeploying}
                 className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-md transition-all active:scale-95 disabled:opacity-50"
               >
-                Tidak
+                Batal
               </button>
             </div>
           </div>
@@ -556,11 +552,11 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
             </div>
             
             {/* Editor */}
-            <div className="flex-1 h-full relative">
+            <div className="flex-1 relative h-full">
               <div className="absolute top-0 left-0 right-0 h-8 bg-[#1e1e1e] border-b border-zinc-800 flex items-center px-4 text-[10px] text-zinc-400 z-10">
                 {activeFile}
               </div>
-              <div className="pt-8 h-full">
+              <div className="absolute top-8 bottom-0 left-0 right-0">
                 <Editor
                   height="100%"
                   language={getLanguage(activeFile)}

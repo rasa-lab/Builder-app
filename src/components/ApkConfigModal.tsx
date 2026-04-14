@@ -13,6 +13,9 @@ export function ApkConfigModal({ isOpen, onClose, onConfirm }: ApkConfigModalPro
   const [isOnline, setIsOnline] = useState(true);
   const [permissions, setPermissions] = useState<string[]>(['INTERNET']);
   const [showAllPermissions, setShowAllPermissions] = useState(false);
+  const [bootVideo, setBootVideo] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   
   // Generate 200 common Android permissions
   const allAndroidPermissions = [
@@ -84,10 +87,10 @@ export function ApkConfigModal({ isOpen, onClose, onConfirm }: ApkConfigModalPro
     if (permissions.includes(perm)) {
       setPermissions(permissions.filter(p => p !== perm));
     } else {
-      if (permissions.length < 10) {
+      if (permissions.length < 20) {
         setPermissions([...permissions, perm]);
       } else {
-        alert("Maksimal 10 perizinan.");
+        alert("Maksimal 20 perizinan.");
       }
     }
   };
@@ -157,8 +160,8 @@ export function ApkConfigModal({ isOpen, onClose, onConfirm }: ApkConfigModalPro
           {/* Permissions */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-zinc-300 flex justify-between">
-              <span>Perizinan (Maks 10)</span>
-              <span className="text-xs text-zinc-500">{permissions.length}/10</span>
+              <span>Perizinan (Maks 20)</span>
+              <span className="text-xs text-zinc-500">{permissions.length}/20</span>
             </label>
             <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-[#09090b] border border-zinc-800 rounded-lg">
               {availablePermissions.map(perm => (
@@ -167,6 +170,12 @@ export function ApkConfigModal({ isOpen, onClose, onConfirm }: ApkConfigModalPro
                     {permissions.includes(perm) && <Check size={12} className="text-white" />}
                   </div>
                   <span className="truncate" title={perm}>{perm.replace('ACCESS_', '').replace('_EXTERNAL_STORAGE', '')}</span>
+                  <input 
+                    type="checkbox" 
+                    className="hidden" 
+                    checked={permissions.includes(perm)}
+                    onChange={() => togglePermission(perm)}
+                  />
                 </label>
               ))}
             </div>
@@ -221,10 +230,10 @@ export function ApkConfigModal({ isOpen, onClose, onConfirm }: ApkConfigModalPro
           <div className="bg-[#18181b] border border-zinc-800 rounded-xl w-full max-w-2xl shadow-2xl flex flex-col h-[80vh]">
             <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-[#18181b] shrink-0">
               <div className="flex items-center gap-2 text-zinc-100 font-semibold">
-                Semua Perizinan (Maks 10)
+                Semua Perizinan (Maks 20)
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-sm text-zinc-400">{permissions.length}/10</span>
+                <span className="text-sm text-zinc-400">{permissions.length}/20</span>
                 <button onClick={() => setShowAllPermissions(false)} className="text-zinc-400 hover:text-zinc-100 transition-colors">
                   <X size={20} />
                 </button>

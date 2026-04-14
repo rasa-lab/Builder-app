@@ -25,10 +25,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     theme: 'dark'
   });
 
-  const [adminPassword, setAdminPassword] = useState('');
-  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
-  const [adminError, setAdminError] = useState('');
-
   useEffect(() => {
     // Load keys from local storage on mount
     try {
@@ -57,15 +53,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     onClose();
   };
 
-  const handleAdminUnlock = () => {
-    if (adminPassword === '926285638382789282786527827') {
-      setIsAdminUnlocked(true);
-      setAdminError('');
-    } else {
-      setAdminError('Password salah');
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -82,63 +69,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
         
         <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
-          {/* Theme Toggle */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-zinc-300">Tema</label>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setKeys({...keys, theme: 'dark'})}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${keys.theme === 'dark' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
-                >
-                  Dark
-                </button>
-                <button 
-                  onClick={() => setKeys({...keys, theme: 'light'})}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${keys.theme === 'light' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
-                >
-                  Light
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Admin Panel */}
-          <div className="space-y-3 pt-4 border-t border-zinc-800">
-            <label className="text-sm font-medium text-zinc-300">Admin Panel</label>
-            {!isAdminUnlocked ? (
-              <div className="flex gap-2">
-                <input 
-                  type="password" 
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  placeholder="Masukkan password admin"
-                  className="flex-1 bg-[#09090b] border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
-                />
-                <button 
-                  onClick={handleAdminUnlock}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-all active:scale-95"
-                >
-                  Buka
-                </button>
-              </div>
-            ) : (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-3">
-                <div className="text-xs font-semibold text-blue-400 mb-2">ADMIN PANEL TERBUKA</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => alert('Fitur ini sedang dalam pengembangan.')} className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-300 text-left active:scale-95 transition-transform">PROJECT</button>
-                  <button onClick={() => alert('Fitur ini sedang dalam pengembangan.')} className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-300 text-left active:scale-95 transition-transform">CONVERT</button>
-                  <button onClick={() => alert('Fitur ini sedang dalam pengembangan.')} className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-300 text-left active:scale-95 transition-transform">DEPLOY (Coming Soon)</button>
-                  <button onClick={() => alert('Fitur ini sedang dalam pengembangan.')} className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-300 text-left active:scale-95 transition-transform">LEADERBOARD</button>
-                  <button onClick={() => alert('Fitur ini sedang dalam pengembangan.')} className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-300 text-left active:scale-95 transition-transform">GROUP</button>
-                  <button onClick={() => alert('Fitur ini sedang dalam pengembangan.')} className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-300 text-left active:scale-95 transition-transform">CUSTOMER SERVICE</button>
-                </div>
-              </div>
-            )}
-            {adminError && <p className="text-xs text-red-400 mt-1">{adminError}</p>}
-          </div>
-
-          <div className="space-y-2 pt-4 border-t border-zinc-800">
+          <div className="space-y-2">
             <label className="text-sm font-medium text-zinc-300">Gemini API Key</label>
             <input 
               type="password" 

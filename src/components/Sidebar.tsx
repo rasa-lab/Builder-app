@@ -10,12 +10,12 @@ interface SidebarProps {
   onDeleteProject: (projectId: string) => void;
   onRenameProject: (projectId: string, newName: string) => void;
   onClose?: () => void;
-  onOpenSettings: () => void;
   onClearChat: () => void;
   onNewProject: () => void;
+  onOpenSettings: () => void;
 }
 
-export function Sidebar({ projects, currentProjectId, onLoadProject, onDeleteProject, onRenameProject, onClose, onOpenSettings, onClearChat, onNewProject }: SidebarProps) {
+export function Sidebar({ projects, currentProjectId, onLoadProject, onDeleteProject, onRenameProject, onClose, onClearChat, onNewProject, onOpenSettings }: SidebarProps) {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleLogout = async () => {
@@ -34,7 +34,7 @@ export function Sidebar({ projects, currentProjectId, onLoadProject, onDeletePro
           <span>X BUILDER</span>
         </div>
         {onClose && (
-          <button onClick={onClose} className="md:hidden p-1.5 hover:bg-zinc-800 rounded-md text-zinc-400">
+          <button onClick={onClose} className="md:hidden p-1.5 hover:bg-zinc-800 rounded-md text-zinc-400 transition-all active:scale-95">
             <X size={16} />
           </button>
         )}
@@ -71,18 +71,18 @@ export function Sidebar({ projects, currentProjectId, onLoadProject, onDeletePro
 
       <div className="p-2 border-t border-zinc-800 space-y-1">
         <button 
+          onClick={onOpenSettings}
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-all active:scale-95 text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+        >
+          <Settings size={14} />
+          Pengaturan Aplikasi
+        </button>
+        <button 
           onClick={onClearChat}
           className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-all active:scale-95 text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-red-400"
         >
           <Trash2 size={14} />
           Clear Chat
-        </button>
-        <button 
-          onClick={onOpenSettings}
-          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-all active:scale-95 text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-        >
-          <Settings size={14} />
-          Settings
         </button>
         <button 
           onClick={handleLogout}
