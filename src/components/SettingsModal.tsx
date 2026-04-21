@@ -61,7 +61,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-[#18181b]">
           <div className="flex items-center gap-2 text-zinc-100 font-semibold">
             <KeyRound size={18} className="text-blue-500" />
-            API Configuration
+            Settings API Key
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-100 transition-colors">
             <X size={20} />

@@ -368,45 +368,6 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
           </div>
         )}
         <div className="max-w-4xl mx-auto relative w-full">
-          <div className="mb-2 flex justify-end">
-            <select 
-              value={selectedModel}
-              onChange={(e) => onModelChange(e.target.value)}
-              className="bg-[#18181b] border border-zinc-800 rounded-md px-2 py-1 outline-none text-zinc-400 font-medium cursor-pointer hover:border-zinc-700 transition-colors text-[10px] max-w-[200px] truncate"
-            >
-              <optgroup label="Gemini">
-                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
-                <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Hemat)</option>
-                <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash Lite</option>
-              </optgroup>
-              <optgroup label="OpenAI">
-                <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                <option value="gpt-4o">GPT-4o</option>
-                <option value="gpt-4o-mini">GPT-4o Mini</option>
-                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-              </optgroup>
-              <optgroup label="OpenRouter">
-                <option value="anthropic/claude-3.7-sonnet">Claude 3.7 Sonnet</option>
-                <option value="openai/gpt-4o">GPT-4o (OpenRouter)</option>
-              </optgroup>
-              <optgroup label="xAI">
-                <option value="grok-2-latest">Grok 2</option>
-              </optgroup>
-              <optgroup label="DeepSeek">
-                <option value="deepseek-coder">DeepSeek Coder</option>
-                <option value="deepseek-chat">DeepSeek Chat</option>
-              </optgroup>
-              <optgroup label="Qwen">
-                <option value="qwen-coder-plus">Qwen Coder Plus</option>
-                <option value="qwen-coder-turbo">Qwen Coder Turbo</option>
-              </optgroup>
-              <optgroup label="Custom API">
-                <option value="custom-gpt-4o">Custom Endpoint (GPT-4o)</option>
-                <option value="custom-claude-3-opus">Custom Endpoint (Claude)</option>
-              </optgroup>
-            </select>
-          </div>
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2 p-2 bg-[#18181b] border border-zinc-800 rounded-lg">
               {attachments.map((att, i) => (

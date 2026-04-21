@@ -3,8 +3,8 @@ import { Sidebar } from './components/Sidebar';
 import { ChatPane } from './components/ChatPane';
 import { PreviewPane } from './components/PreviewPane';
 import { SettingsModal } from './components/SettingsModal';
-import { AppSettingsModal } from './components/AppSettingsModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
+import { AppSettingsModal } from './components/AppSettingsModal';
 import { Auth } from './components/Auth';
 import { streamWebsiteGeneration, ApiKeys } from './lib/api';
 import { auth, db, onSnapshot, doc, collection, query, where, orderBy, setDoc, deleteDoc, serverTimestamp } from './lib/firebase';
@@ -165,9 +165,9 @@ export default function App() {
   
   // Mobile & Modal State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
-  const [isAppSettingsOpen, setIsAppSettingsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [isAppSettingsOpen, setIsAppSettingsOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chat' | 'preview'>('chat');
   const [isDesktopMode, setIsDesktopMode] = useState(false);
@@ -600,7 +600,7 @@ export default function App() {
           onClose={() => setIsSidebarOpen(false)} 
           onClearChat={handleClearChat}
           onNewProject={handleNewProject}
-          onOpenSettings={() => {
+          onOpenAppSettings={() => {
             setIsSidebarOpen(false);
             setIsAppSettingsOpen(true);
           }}
@@ -622,30 +622,117 @@ export default function App() {
 
           {/* Right Side Controls */}
           <div className="flex items-center gap-1.5">
-            <button onClick={() => setIsDesktopMode(!isDesktopMode)} className={`hidden md:flex p-1.5 rounded-md transition-all active:scale-95 ${isDesktopMode ? 'bg-blue-600/20 text-blue-400' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800'}`} title="Split View">
-              <Columns size={16} />
-            </button>
-            <button onClick={() => {
-              if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {});
-              } else {
-                document.exitFullscreen();
-              }
-            }} className="hidden md:flex p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95" title="Full Screen">
-              <Maximize size={16} />
-            </button>
-            <div className="w-px h-4 bg-zinc-800 mx-1 hidden md:block"></div>
             <button onClick={() => setIsAdminPanelOpen(true)} className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-all active:scale-95" title="Admin Panel">
               <ShieldAlert size={18} />
             </button>
-            <button onClick={() => setIsApiSettingsOpen(true)} className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95" title="API Settings">
-              <KeyRound size={18} />
+            <button onClick={() => setIsSettingsOpen(true)} className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-all active:scale-95" title="Settings">
+              <Settings size={18} />
             </button>
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden relative">
-          <div className={`flex-1 overflow-hidden ${isDesktopMode ? 'md:w-1/2 lg:w-[45%] md:border-r border-zinc-800' : 'w-full'} flex flex-col ${!isDesktopMode && mobileTab !== 'chat' ? 'hidden md:flex' : 'flex'}`}>
+        {/* Unified Top Header - Row 2 (Controls) */}
+        <div className="h-10 border-b border-zinc-800 bg-[#121214] shrink-0 flex items-center px-3 justify-between">
+          <div className="flex items-center gap-2">
+            {/* Mobile Chat/Preview Toggle */}
+            <div className="md:hidden flex items-center bg-zinc-900 rounded-md p-1 mr-2">
+              <button 
+                onClick={() => setMobileTab('chat')} 
+                className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${mobileTab === 'chat' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+              >
+                Chat
+              </button>
+              <button 
+                onClick={() => setMobileTab('preview')} 
+                className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${mobileTab === 'preview' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+              >
+                Preview
+              </button>
+            </div>
+          </div>
+
+          {/* Middle & Right Side Controls (Row 2) */}
+          <div className="flex items-center gap-3 ml-auto">
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setIsDesktopMode(!isDesktopMode)} 
+                className={`flex items-center justify-center w-5 h-5 rounded hover:bg-zinc-800 transition-all active:scale-95 text-[10px] font-bold ${isDesktopMode ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 border border-zinc-800'}`} 
+                title="Mode Desktop (Split)"
+              >
+                [+]
+              </button>
+              <button 
+                onClick={() => {
+                  if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                  } else {
+                    document.exitFullscreen();
+                  }
+                }} 
+                className="flex items-center justify-center w-5 h-5 rounded hover:text-zinc-100 hover:bg-zinc-800 border border-zinc-800 transition-all active:scale-95 text-[10px] font-bold text-zinc-400" 
+                title="Mode Fullscreen"
+              >
+                [-]
+              </button>
+            </div>
+
+            <div className="w-px h-4 bg-zinc-700 mx-1"></div>
+
+            <select 
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="bg-[#18181b] border border-zinc-700 rounded-md px-2 py-1 flex items-center justify-center outline-none text-zinc-300 font-medium cursor-pointer hover:border-zinc-600 transition-colors text-[10px] max-w-[200px] truncate"
+            >
+              <optgroup label="Gemini">
+                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+                <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash Lite</option>
+              </optgroup>
+              {enableOpenAI && (
+                <optgroup label="OpenAI">
+                  <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                  <option value="gpt-4o-mini">GPT-4o Mini</option>
+                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                </optgroup>
+              )}
+              {enableOpenRouter && (
+                <optgroup label="OpenRouter">
+                  <option value="anthropic/claude-3.7-sonnet">Claude 3.7 Sonnet</option>
+                  <option value="openai/gpt-4o">GPT-4o (OpenRouter)</option>
+                </optgroup>
+              )}
+              {enableGrok && (
+                <optgroup label="xAI">
+                  <option value="grok-2-latest">Grok 2</option>
+                </optgroup>
+              )}
+              {enableDeepSeek && (
+                <optgroup label="DeepSeek">
+                  <option value="deepseek-coder">DeepSeek Coder</option>
+                  <option value="deepseek-chat">DeepSeek Chat</option>
+                </optgroup>
+              )}
+              {enableQwen && (
+                <optgroup label="Qwen">
+                  <option value="qwen-coder-plus">Qwen Coder Plus</option>
+                  <option value="qwen-coder-turbo">Qwen Coder Turbo</option>
+                </optgroup>
+              )}
+              {enableCustom && (
+                <optgroup label="Custom API">
+                  <option value="custom-gpt-4o">Custom Endpoint (GPT-4o)</option>
+                  <option value="custom-claude-3-opus">Custom Endpoint (Claude)</option>
+                </optgroup>
+              )}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex flex-1 overflow-hidden relative bg-[#09090b]">
+           {/* Chat Pane */}
+          <div className={`flex flex-col overflow-hidden transition-all ${isDesktopMode ? 'w-1/2 border-r border-zinc-800' : (mobileTab === 'chat' ? 'w-full' : 'hidden md:flex md:w-full border-r border-zinc-800')}`}>
             <ChatPane 
               messages={messages} 
               onSendMessage={handleSendMessage} 
@@ -657,7 +744,8 @@ export default function App() {
             />
           </div>
 
-          <div className={`flex-1 overflow-hidden ${isDesktopMode ? 'md:w-1/2 lg:w-[55%]' : 'w-full'} flex flex-col ${!isDesktopMode && mobileTab !== 'preview' ? 'hidden md:flex' : 'flex'}`}>
+          {/* Preview Pane */}
+          <div className={`flex flex-col overflow-hidden transition-all ${isDesktopMode ? 'w-1/2' : (mobileTab === 'preview' ? 'w-full' : 'hidden md:flex md:w-full')}`}>
             <PreviewPane 
               files={files} 
               onChangeFiles={setFiles} 
@@ -665,39 +753,21 @@ export default function App() {
             />
           </div>
         </div>
-
-        {/* Mobile Bottom Navigation */}
-        <div className="md:hidden h-14 border-t border-zinc-800 bg-[#09090b] flex items-center justify-around shrink-0 pb-safe">
-          <button 
-            onClick={() => setMobileTab('chat')} 
-            className={`flex flex-col items-center justify-center w-full h-full transition-colors ${mobileTab === 'chat' ? 'text-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            <MessageSquare size={20} />
-            <span className="text-[10px] mt-1 font-medium">Chat</span>
-          </button>
-          <button 
-            onClick={() => setMobileTab('preview')} 
-            className={`flex flex-col items-center justify-center w-full h-full transition-colors ${mobileTab === 'preview' ? 'text-blue-500' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            <LayoutTemplate size={20} />
-            <span className="text-[10px] mt-1 font-medium">Preview</span>
-          </button>
-        </div>
       </div>
 
       <SettingsModal 
-        isOpen={isApiSettingsOpen} 
-        onClose={() => setIsApiSettingsOpen(false)} 
-      />
-
-      <AppSettingsModal 
-        isOpen={isAppSettingsOpen} 
-        onClose={() => setIsAppSettingsOpen(false)} 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
       />
 
       <AdminPanelModal 
         isOpen={isAdminPanelOpen} 
         onClose={() => setIsAdminPanelOpen(false)} 
+      />
+
+      <AppSettingsModal 
+        isOpen={isAppSettingsOpen} 
+        onClose={() => setIsAppSettingsOpen(false)} 
       />
 
       {/* Clear Chat Confirmation Modal */}

@@ -1,56 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
 
 @layer utilities {
   .markdown-body {
-    @apply text-[15px] leading-relaxed text-[#e3e3e3];
+    @apply text-sm leading-relaxed text-zinc-300;
   }
   .markdown-body p {
     @apply mb-4 last:mb-0;
   }
   .markdown-body pre {
-    @apply bg-[#1e1f20] border border-[#444746] rounded-lg p-4 overflow-x-auto my-4 text-sm font-mono;
+    @apply bg-zinc-900 border border-zinc-800 rounded-lg p-4 overflow-x-auto my-4 text-sm font-mono shadow-inner;
   }
   .markdown-body code {
-    @apply bg-[#1e1f20] px-1.5 py-0.5 rounded text-sm font-mono text-[#8ab4f8];
+    @apply bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono text-blue-400;
   }
   .markdown-body pre code {
-    @apply bg-transparent p-0 text-[#e3e3e3];
+    @apply bg-transparent p-0 text-zinc-300;
   }
   .markdown-body ul {
-    @apply list-disc list-inside mb-4;
+    @apply list-disc list-inside mb-4 pl-2;
   }
   .markdown-body ol {
-    @apply list-decimal list-inside mb-4;
+    @apply list-decimal list-inside mb-4 pl-2;
   }
   .markdown-body a {
-    @apply text-[#8ab4f8] hover:underline;
+    @apply text-blue-400 hover:text-blue-300 hover:underline transition-colors;
   }
 }
 
-/* Light Theme Variables */
-:root.light-theme {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f4f4f5;
-  --bg-tertiary: #e4e4e7;
-  --text-primary: #18181b;
-  --text-secondary: #3f3f46;
-  --text-tertiary: #71717a;
-  --border-color: #e4e4e7;
+body {
+  @apply bg-[#09090b] text-zinc-300 antialiased font-sans;
 }
 
-/* Apply light theme variables to specific components if needed, or rely on Tailwind's dark mode strategy if configured */
-/* For this implementation, we will use a simple CSS variable approach for key structural elements if requested, 
-   but since the app uses hardcoded tailwind colors (e.g., bg-[#09090b]), a full light theme requires extensive refactoring.
-   We will add a basic filter approach for a quick light mode as a proof of concept, or we can refactor the main components. */
-
-:root.light-theme body {
-  filter: invert(1) hue-rotate(180deg);
-  background-color: #09090b; /* Keep original background so invert makes it white */
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
-
-/* Prevent images and videos from being inverted */
-:root.light-theme img,
-:root.light-theme video,
-:root.light-theme iframe {
-  filter: invert(1) hue-rotate(180deg);
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-800 border-2 border-[#09090b] rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-zinc-700;
 }

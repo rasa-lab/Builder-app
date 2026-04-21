@@ -12,10 +12,10 @@ interface SidebarProps {
   onClose?: () => void;
   onClearChat: () => void;
   onNewProject: () => void;
-  onOpenSettings: () => void;
+  onOpenAppSettings: () => void;
 }
 
-export function Sidebar({ projects, currentProjectId, onLoadProject, onDeleteProject, onRenameProject, onClose, onClearChat, onNewProject, onOpenSettings }: SidebarProps) {
+export function Sidebar({ projects, currentProjectId, onLoadProject, onDeleteProject, onRenameProject, onClose, onClearChat, onNewProject, onOpenAppSettings }: SidebarProps) {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleLogout = async () => {
@@ -71,11 +71,11 @@ export function Sidebar({ projects, currentProjectId, onLoadProject, onDeletePro
 
       <div className="p-2 border-t border-zinc-800 space-y-1">
         <button 
-          onClick={onOpenSettings}
+          onClick={onOpenAppSettings}
           className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-all active:scale-95 text-xs font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
         >
           <Settings size={14} />
-          Pengaturan Aplikasi
+          Pengaturan Umum
         </button>
         <button 
           onClick={onClearChat}
