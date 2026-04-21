@@ -65,7 +65,7 @@ export async function* streamWebsiteGeneration(
   const finalSystemInstruction = SYSTEM_INSTRUCTION + modeInstruction + fileContext;
 
   if (model.startsWith("gemini")) {
-    const key = apiKeys.gemini || process.env.GEMINI_API_KEY;
+    const key = apiKeys.gemini || import.meta.env.VITE_GEMINI_API_KEY;
     if (!key) throw new Error("Gemini API key is missing.");
     
     const ai = new GoogleGenAI({ apiKey: key });

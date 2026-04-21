@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ShieldAlert, Users, MessageCircle, Database, Trash2, Ban } from 'lucide-react';
+import { X, ShieldAlert, Users, MessageCircle, Database, Trash2, Ban, Tag, Radio, CreditCard, Ticket } from 'lucide-react';
 import { db, auth, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from '../lib/firebase';
 
 interface AdminPanelModalProps {
@@ -11,7 +11,17 @@ export function AdminPanelModal({ isOpen, onClose }: AdminPanelModalProps) {
   const [adminPassword, setAdminPassword] = useState('');
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminError, setAdminError] = useState('');
-  const [activeView, setActiveView] = useState<'menu' | 'service' | 'group' | 'data'>('menu');
+  const [activeView, setActiveView] = useState<'menu' | 'service' | 'group' | 'data' | 'promo' | 'broadcast' | 'penjualan' | 'gen'>('menu');
+
+  const [promoCode, setPromoCode] = useState('');
+  const [promoType, setPromoType] = useState('prem');
+  const [promoDiscount, setPromoDiscount] = useState('');
+
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMsg, setBroadcastMsg] = useState('');
+
+  const [genPackageName, setGenPackageName] = useState('prem');
+  const [generatedCode, setGeneratedCode] = useState('');
 
   const handleAdminUnlock = () => {
     if (adminPassword === '926285638382789282786527827') {
@@ -21,6 +31,71 @@ export function AdminPanelModal({ isOpen, onClose }: AdminPanelModalProps) {
       setAdminError('Password salah');
     }
   };
+
+  const handleCreatePromo = () => {
+    if (!promoCode || !promoDiscount) return;
+    // Real implementation would save to Firebase
+    addDoc(collection(db, 'promos'), {
+       code: promoCode.toUpperCase(),
+       type: promoType,
+       discount: parseInt(promoDiscount),
+       createdAt: serverTimestamp(),
+       isUsed: false
+    });
+    setPromoCode('');
+    setPromoDiscount('');
+    alert("Promo berhasil dibuat!");
+  }
+
+  const handleSendBroadcast = () => {
+    if (!broadcastTitle || !broadcastMsg) return;
+    addDoc(collection(db, 'broadcasts'), {
+       title: broadcastTitle,
+       message: broadcastMsg,
+       createdAt: serverTimestamp()
+    });
+    setBroadcastTitle('');
+    setBroadcastMsg('');
+    alert("Broadcast terkirim ke semua user!");
+  }
+
+  const handleGenCode = () => {
+    const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const code = `${genPackageName.toUpperCase()}-${randomStr}`;
+    setGeneratedCode(code);
+    addDoc(collection(db, 'package_codes'), {
+       code: code,
+       package: genPackageName,
+       isUsed: false,
+       createdAt: serverTimestamp()
+    });
+  }
+
+  const [salesData, setSalesData] = useState({ totalSales: 0, proCount: 0, premCount: 0 });
+
+  useEffect(() => {
+    if (activeView === 'penjualan' && isAdminUnlocked) {
+      const unsub = onSnapshot(collection(db, 'package_codes'), (snap) => {
+        let total = 0;
+        let proC = 0;
+        let premC = 0;
+        snap.forEach(doc => {
+           const d = doc.data();
+           if (d.isUsed) {
+              if (d.package === 'pro') {
+                 total += 11000;
+                 proC++;
+              } else if (d.package === 'prem') {
+                 total += 6000;
+                 premC++;
+              }
+           }
+        });
+        setSalesData({ totalSales: total, proCount: proC, premCount: premC });
+      });
+      return () => unsub();
+    }
+  }, [activeView, isAdminUnlocked]);
 
   if (!isOpen) return null;
 
@@ -86,6 +161,30 @@ export function AdminPanelModal({ isOpen, onClose }: AdminPanelModalProps) {
                   className={`flex items-center gap-2 md:gap-3 px-4 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeView === 'data' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200 border border-transparent'}`}
                 >
                   <Database size={16} className="md:w-[18px] md:h-[18px]" /> Data & Log
+                </button>
+                <button 
+                  onClick={() => setActiveView('promo')}
+                  className={`flex items-center gap-2 md:gap-3 px-4 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeView === 'promo' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200 border border-transparent'}`}
+                >
+                  <Tag size={16} className="md:w-[18px] md:h-[18px]" /> Promo Paket
+                </button>
+                <button 
+                  onClick={() => setActiveView('broadcast')}
+                  className={`flex items-center gap-2 md:gap-3 px-4 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeView === 'broadcast' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200 border border-transparent'}`}
+                >
+                  <Radio size={16} className="md:w-[18px] md:h-[18px]" /> Broadcast
+                </button>
+                <button 
+                  onClick={() => setActiveView('penjualan')}
+                  className={`flex items-center gap-2 md:gap-3 px-4 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeView === 'penjualan' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200 border border-transparent'}`}
+                >
+                  <CreditCard size={16} className="md:w-[18px] md:h-[18px]" /> Penjualan
+                </button>
+                <button 
+                  onClick={() => setActiveView('gen')}
+                  className={`flex items-center gap-2 md:gap-3 px-4 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeView === 'gen' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200 border border-transparent'}`}
+                >
+                  <Ticket size={16} className="md:w-[18px] md:h-[18px]" /> Generate Code
                 </button>
               </div>
             </div>
@@ -169,6 +268,113 @@ export function AdminPanelModal({ isOpen, onClose }: AdminPanelModalProps) {
                           </tr>
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                )}
+
+                {activeView === 'promo' && (
+                  <div className="space-y-6 h-full flex flex-col max-w-2xl mx-auto w-full">
+                    <div className="bg-[#121214] border border-zinc-800 rounded-2xl p-6">
+                      <h4 className="font-semibold text-zinc-200 mb-4 flex items-center gap-2"><Tag size={18} /> Buat Promo Code</h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-medium text-zinc-400 block mb-1">Kode Promo</label>
+                          <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} className="w-full bg-[#09090b] border border-zinc-800 rounded-lg px-4 py-2 text-sm text-zinc-200 focus:outline-none focus:border-red-500 uppercase" placeholder="Contoh: DISKON50" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-zinc-400 block mb-1">Tipe Paket</label>
+                          <select value={promoType} onChange={(e) => setPromoType(e.target.value)} className="w-full bg-[#09090b] border border-zinc-800 rounded-lg px-4 py-2 text-sm text-zinc-200 focus:outline-none focus:border-red-500">
+                            <option value="prem">Prem (Rp. 6.000)</option>
+                            <option value="pro">Pro (Rp. 11.000)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-zinc-400 block mb-1">Diskon (%)</label>
+                          <input type="number" value={promoDiscount} onChange={(e) => setPromoDiscount(e.target.value)} className="w-full bg-[#09090b] border border-zinc-800 rounded-lg px-4 py-2 text-sm text-zinc-200 focus:outline-none focus:border-red-500" placeholder="Contoh: 50" />
+                        </div>
+                        <button onClick={handleCreatePromo} className="w-full py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold transition-all active:scale-95 text-sm mt-2">
+                          Buat Kode Promo
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeView === 'broadcast' && (
+                  <div className="space-y-6 h-full flex flex-col max-w-2xl mx-auto w-full">
+                    <div className="bg-[#121214] border border-zinc-800 rounded-2xl p-6">
+                      <h4 className="font-semibold text-zinc-200 mb-4 flex items-center gap-2"><Radio size={18} /> Kirim Pesan Broadcast</h4>
+                      <p className="text-sm text-zinc-500 mb-4">Pesan ini akan muncul di pengaturan default user bagian 'Broadcast'.</p>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-medium text-zinc-400 block mb-1">Judul Info / Promo</label>
+                          <input type="text" value={broadcastTitle} onChange={(e) => setBroadcastTitle(e.target.value)} className="w-full bg-[#09090b] border border-zinc-800 rounded-lg px-4 py-2 text-sm text-zinc-200 focus:outline-none focus:border-red-500" placeholder="Contoh: Update Versi 2.0!" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-zinc-400 block mb-1">Pesan Lengkap</label>
+                          <textarea value={broadcastMsg} onChange={(e) => setBroadcastMsg(e.target.value)} className="w-full bg-[#09090b] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-red-500 h-32 resize-none" placeholder="Isi pesan broadcast..."></textarea>
+                        </div>
+                        <button onClick={handleSendBroadcast} className="w-full py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold transition-all active:scale-95 text-sm mt-2">
+                          Push Broadcast Sekarang
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeView === 'penjualan' && (
+                  <div className="space-y-6 h-full flex flex-col w-full">
+                    <div className="flex gap-4">
+                      <div className="flex-1 bg-[#121214] border border-zinc-800 rounded-2xl p-6 relative overflow-hidden">
+                        <div className="absolute -right-4 -bottom-4 opacity-5 text-red-500">
+                           <CreditCard size={120} />
+                        </div>
+                        <h4 className="text-zinc-500 text-xs font-medium uppercase mb-1">Total Penjualan (Bulan Ini)</h4>
+                        <p className="text-3xl font-bold text-zinc-100">Rp. {salesData.totalSales.toLocaleString('id-ID')}</p>
+                        <p className="text-xs text-green-500 mt-2 font-medium">Berdasarkan kode yang diklaim</p>
+                      </div>
+                      <div className="flex-1 bg-[#121214] border border-zinc-800 rounded-2xl p-6 relative overflow-hidden">
+                        <div className="absolute -right-4 -bottom-4 opacity-5 text-blue-500">
+                           <Users size={120} />
+                        </div>
+                        <h4 className="text-zinc-500 text-xs font-medium uppercase mb-1">User Berbayar (Pro/Prem)</h4>
+                        <p className="text-3xl font-bold text-zinc-100">{salesData.proCount + salesData.premCount}</p>
+                        <p className="text-xs text-zinc-500 mt-2 font-medium">Pro: {salesData.proCount} | Prem: {salesData.premCount}</p>
+                      </div>
+                    </div>
+                    <div className="flex-1 bg-[#121214] border border-zinc-800 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+                       <Database size={48} className="text-zinc-700 mb-4" />
+                       <h4 className="text-zinc-300 font-medium mb-1">Tidak ada modul log terpisah</h4>
+                       <p className="text-sm text-zinc-500">Data penjualan diambil seluruhnya dari database klaim paket.</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeView === 'gen' && (
+                  <div className="space-y-6 h-full flex flex-col max-w-2xl mx-auto w-full">
+                    <div className="bg-[#121214] border border-zinc-800 rounded-2xl p-6">
+                      <h4 className="font-semibold text-zinc-200 mb-4 flex items-center gap-2"><Ticket size={18} /> Generate Code Aktivasi</h4>
+                      <p className="text-sm text-zinc-500 mb-6">User dapat menempelkan kode ini di Pengaturan Default &gt; Paket untuk mengaktifkan plan.</p>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-medium text-zinc-400 block mb-1">Pilih Paket Penjualan</label>
+                          <select value={genPackageName} onChange={(e) => setGenPackageName(e.target.value)} className="w-full bg-[#09090b] border border-zinc-800 rounded-lg px-4 py-2 text-sm text-zinc-200 focus:outline-none focus:border-red-500">
+                            <option value="prem">Prem (Rp. 6.000 / 1 Tahun / 300 Limit/Hari)</option>
+                            <option value="pro">Pro (Rp. 11.000 / 1 Tahun / Unlimited)</option>
+                          </select>
+                        </div>
+                        <button onClick={handleGenCode} className="w-full py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold transition-all active:scale-95 text-sm">
+                          Generate Unik Code
+                        </button>
+
+                        {generatedCode && (
+                          <div className="mt-6 p-4 bg-zinc-900 border border-zinc-700 rounded-xl text-center">
+                            <p className="text-xs text-zinc-500 mb-2">Kode berhasil digenerate!</p>
+                            <p className="text-xl font-mono text-zinc-100 mb-3">{generatedCode}</p>
+                            <p className="text-xs text-green-400/80">Silakan copy kode di atas dan berikan ke pembeli.</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

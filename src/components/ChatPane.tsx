@@ -12,6 +12,7 @@ interface ChatPaneProps {
   onModelChange: (model: string) => void;
   projectMode: ProjectMode;
   onModeChange: (mode: ProjectMode) => void;
+  userPlan?: {plan: string, limit: number};
 }
 
 function ActionLogsComponent({ logs }: { logs: ActionLog[] }) {
@@ -95,7 +96,7 @@ function ActionButtons({ text, onRepeat }: { text: string, onRepeat: () => void 
   );
 }
 
-export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel, onModelChange, projectMode, onModeChange }: ChatPaneProps) {
+export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel, onModelChange, projectMode, onModeChange, userPlan }: ChatPaneProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<{ name: string; data: string; type: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -389,29 +390,37 @@ export function ChatPane({ messages, onSendMessage, isGenerating, selectedModel,
               className="hidden" 
               multiple 
             />
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2.5 bg-[#18181b] border border-zinc-700 rounded-xl text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-all active:scale-95"
-              title="Add file"
-            >
-              <Paperclip size={16} />
-            </button>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Describe what you want to build..."
-              className="flex-1 bg-[#18181b] border border-zinc-700 rounded-xl pl-3 pr-10 py-2.5 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none min-h-[42px] max-h-[150px] shadow-sm text-sm"
-              rows={1}
-              style={{ height: 'auto', overflowY: 'auto' }}
-            />
-            <button
-              onClick={handleSubmit}
-              disabled={isGenerating || (!input.trim() && attachments.length === 0)}
-              className="absolute right-2 bottom-2 p-1.5 bg-blue-600 text-white hover:bg-blue-500 rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-            >
-              <Send size={14} />
-            </button>
+            {userPlan?.limit === 0 ? (
+              <div className="flex-1 bg-red-900/20 border border-red-500/50 rounded-xl px-4 py-3 text-red-400 text-sm font-medium text-center shadow-lg">
+                Limit / Kuota pertanyaan harian kamu sebesar telah mencapai 0/Habis. Mohon tingkatkan langganan Anda.
+              </div>
+            ) : (
+              <>
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2.5 bg-[#18181b] border border-zinc-700 rounded-xl text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-all active:scale-95"
+                  title="Add file"
+                >
+                  <Paperclip size={16} />
+                </button>
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Describe what you want to build..."
+                  className="flex-1 bg-[#18181b] border border-zinc-700 rounded-xl pl-3 pr-10 py-2.5 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none min-h-[42px] max-h-[150px] shadow-sm text-sm"
+                  rows={1}
+                  style={{ height: 'auto', overflowY: 'auto' }}
+                />
+                <button
+                  onClick={handleSubmit}
+                  disabled={isGenerating || (!input.trim() && attachments.length === 0)}
+                  className="absolute right-2 bottom-2 p-1.5 bg-blue-600 text-white hover:bg-blue-500 rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                >
+                  <Send size={14} />
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -1,15 +1,15 @@
-import { X, User, Palette, HardDrive, MessageCircle, Users, Trophy, Battery } from 'lucide-react';
+import { X, User, Palette, HardDrive, MessageCircle, Users, Trophy, Battery, Package, Radio } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
-import { db, auth, collection, doc, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, getDoc } from '../lib/firebase';
+import { db, auth, collection, doc, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, getDoc, getDocs, where } from '../lib/firebase';
 
 interface AppSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  userPlan: { plan: string; limit: number };
 }
 
-export function AppSettingsModal({ isOpen, onClose }: AppSettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'tampilan' | 'data' | 'profil' | 'service' | 'group' | 'leaderboard' | 'limit'>('tampilan');
-  const [queriesUsed, setQueriesUsed] = useState(0);
+export function AppSettingsModal({ isOpen, onClose, userPlan }: AppSettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<'tampilan' | 'data' | 'profil' | 'service' | 'group' | 'leaderboard' | 'limit' | 'paket' | 'broadcast'>('tampilan');
 
   // States for Profil
   const [displayName, setDisplayName] = useState('');
@@ -25,8 +25,15 @@ export function AppSettingsModal({ isOpen, onClose }: AppSettingsModalProps) {
   const [groupInput, setGroupInput] = useState('');
   const groupEndRef = React.useRef<HTMLDivElement>(null);
 
+  // States for Paket
+  const [reedemCode, setReedemCode] = useState('');
+  // removed duplicate userPlan local state
+
+  // States for Broadcast
+  const [broadcasts, setBroadcasts] = useState<any[]>([]);
+
   useEffect(() => {
-    if (activeTab === 'profil' && auth.currentUser) {
+    if ((activeTab === 'profil' || activeTab === 'limit' || activeTab === 'paket') && auth.currentUser) {
        getDoc(doc(db, 'users', auth.currentUser.uid)).then(docSnap => {
           if (docSnap.exists()) {
              setDisplayName(docSnap.data().displayName || '');
@@ -35,6 +42,53 @@ export function AppSettingsModal({ isOpen, onClose }: AppSettingsModalProps) {
        })
     }
   }, [activeTab, isOpen]);
+
+  useEffect(() => {
+    if (activeTab === 'broadcast' && isOpen) {
+       const q = query(collection(db, 'broadcasts'), orderBy('createdAt', 'desc'));
+       return onSnapshot(q, snap => {
+          setBroadcasts(snap.docs.map(d => ({id: d.id, ...d.data()})));
+       });
+    }
+  }, [activeTab, isOpen]);
+
+  const handleReedemCode = async () => {
+    if (!reedemCode || !auth.currentUser) return;
+    
+    try {
+      const q = query(collection(db, 'package_codes'), where('code', '==', reedemCode.trim().toUpperCase()));
+      const snap = await getDocs(q);
+      
+      if (snap.empty) {
+         alert("Kode tidak ditemukan.");
+         return;
+      }
+      
+      const codeDoc = snap.docs[0];
+      const codeData = codeDoc.data();
+      
+      if (codeData.isUsed) {
+         alert("Kode sudah terpakai.");
+         return;
+      }
+      
+      // Update promo unused state to used state.
+      await setDoc(doc(db, 'package_codes', codeDoc.id), { isUsed: true, usedBy: auth.currentUser.uid, usedAt: serverTimestamp() }, { merge: true });
+      
+      // Update user plan
+      await setDoc(doc(db, 'users', auth.currentUser.uid), {
+         plan: codeData.package,
+         planActivatedAt: serverTimestamp()
+      }, { merge: true });
+      
+      setReedemCode('');
+      alert(`Berhasil mengaktifkan paket ${codeData.package.toUpperCase()}!`);
+
+    } catch (e) {
+      console.error(e);
+      alert("Terjadi kesalahan.");
+    }
+  }
 
   useEffect(() => {
     if (activeTab === 'service' && auth.currentUser && isOpen) {
@@ -99,91 +153,70 @@ export function AppSettingsModal({ isOpen, onClose }: AppSettingsModalProps) {
   }
 
   useEffect(() => {
-    const updateLimit = () => {
-      try {
-        const today = new Date().toDateString();
-        const storedLimit = localStorage.getItem('xbuilder_queries');
-        if (storedLimit) {
-          const queryData = JSON.parse(storedLimit);
-          if (queryData.date === today) {
-            setQueriesUsed(queryData.count);
-          } else {
-            setQueriesUsed(0);
-          }
-        }
-      } catch (e) {}
-    };
-    if (isOpen) {
-      updateLimit();
-    }
-    window.addEventListener('limit_updated', updateLimit);
-    return () => window.removeEventListener('limit_updated', updateLimit);
+    // Limits are now tracked entirely inside DB via App state and passed here
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex bg-[#09090b]">
-      <div className="w-full h-full shadow-2xl overflow-hidden flex flex-col md:flex-row bg-[#18181b]">
-        {/* Left Sidebar (Settings Tabs) */}
-        <div className="w-full md:w-64 bg-[#09090b] border-b md:border-b-0 md:border-r border-zinc-800 flex flex-col shrink-0">
-          <div className="p-4 md:p-6 border-b border-zinc-800 flex justify-between md:justify-start items-center">
-            <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-widest">Pengaturan Umum</h2>
-            <button onClick={onClose} className="md:hidden p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 md:p-4">
+      <div className="bg-[#18181b] border border-zinc-800 rounded-none md:rounded-xl w-full max-w-5xl h-full md:h-[85vh] flex flex-col md:flex-row overflow-hidden shadow-2xl">
+        
+        {/* Mobile Header (Tabs Toggle) */}
+        <div className="md:hidden flex flex-col border-b border-zinc-800 bg-[#121214]">
+          <div className="flex justify-between items-center p-4">
+            <h2 className="font-bold text-zinc-100 flex items-center gap-2">
+              Pengaturan Umum
+            </h2>
+            <button onClick={onClose} className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
               <X size={18} />
             </button>
           </div>
-          <div className="p-2 md:p-4 flex gap-1 overflow-x-auto md:flex-col md:space-y-2 md:overflow-y-auto w-full hide-scrollbar">
-            <button 
-              onClick={() => setActiveTab('tampilan')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${activeTab === 'tampilan' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
-            >
-              <Palette size={14} /> Tampilan
-            </button>
-            <button 
-              onClick={() => setActiveTab('profil')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${activeTab === 'profil' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
-            >
-              <User size={14} /> Profil
-            </button>
-            <button 
-              onClick={() => setActiveTab('limit')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${activeTab === 'limit' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
-            >
-              <Battery size={14} /> Limit
-            </button>
-            <button 
-              onClick={() => setActiveTab('leaderboard')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${activeTab === 'leaderboard' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
-            >
-              <Trophy size={14} /> Papan Peringkat
-            </button>
-            <button 
-              onClick={() => setActiveTab('service')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${activeTab === 'service' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
-            >
-              <MessageCircle size={14} /> Service (Chat Admin)
-            </button>
-            <button 
-              onClick={() => setActiveTab('group')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${activeTab === 'group' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
-            >
-              <Users size={14} /> Group
-            </button>
-            <button 
-              onClick={() => setActiveTab('data')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${activeTab === 'data' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'}`}
-            >
-              <HardDrive size={14} /> Data & Cache
-            </button>
+          <div className="flex overflow-x-auto hide-scrollbar border-t border-zinc-800 p-2 gap-1">
+            <button onClick={() => setActiveTab('tampilan')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeTab === 'tampilan' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Tampilan</button>
+            <button onClick={() => setActiveTab('profil')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeTab === 'profil' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Profil</button>
+            <button onClick={() => setActiveTab('paket')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeTab === 'paket' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Paket</button>
+            <button onClick={() => setActiveTab('limit')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeTab === 'limit' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Limit</button>
+            <button onClick={() => setActiveTab('broadcast')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeTab === 'broadcast' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Info</button>
+            <button onClick={() => setActiveTab('leaderboard')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeTab === 'leaderboard' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Leaderboard</button>
+            <button onClick={() => setActiveTab('group')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeTab === 'group' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Group</button>
+            <button onClick={() => setActiveTab('service')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeTab === 'service' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Service</button>
+            <button onClick={() => setActiveTab('data')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeTab === 'data' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Data</button>
+          </div>
+        </div>
+
+        {/* Desktop Sidebar */}
+        <div className="hidden md:flex w-64 bg-[#121214] border-r border-zinc-800 flex-col shrink-0">
+          <div className="p-6 border-b border-zinc-800">
+            <h2 className="font-bold text-lg text-zinc-100 flex items-center gap-2">
+              Pengaturan
+            </h2>
+            <p className="text-xs text-zinc-500 mt-1">Konfigurasi akun dan setelan</p>
+          </div>
+          <div className="p-4 flex flex-col space-y-1 overflow-y-auto flex-1 hide-scrollbar">
+            <button onClick={() => setActiveTab('tampilan')} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'tampilan' ? 'bg-zinc-800/80 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}><Palette size={16} /> Tampilan</button>
+            <button onClick={() => setActiveTab('profil')} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'profil' ? 'bg-zinc-800/80 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}><User size={16} /> Profil</button>
+            <button onClick={() => setActiveTab('paket')} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'paket' ? 'bg-zinc-800/80 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}><Package size={16} /> Paket Aktif</button>
+            <button onClick={() => setActiveTab('limit')} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'limit' ? 'bg-zinc-800/80 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}><Battery size={16} /> Limit & Kuota</button>
+            <button onClick={() => setActiveTab('broadcast')} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'broadcast' ? 'bg-zinc-800/80 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}><Radio size={16} /> Info & Pesan</button>
+            <button onClick={() => setActiveTab('leaderboard')} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'leaderboard' ? 'bg-zinc-800/80 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}><Trophy size={16} /> Leaderboard</button>
+            
+            <div className="my-2 border-t border-zinc-800/50 pt-2"></div>
+            
+            <button onClick={() => setActiveTab('group')} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'group' ? 'bg-zinc-800/80 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}><Users size={16} /> Komunitas (Grup)</button>
+            <button onClick={() => setActiveTab('service')} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'service' ? 'bg-zinc-800/80 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}><MessageCircle size={16} /> Chat Admin</button>
+            
+            <div className="my-2 border-t border-zinc-800/50 pt-2"></div>
+            
+            <button onClick={() => setActiveTab('data')} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'data' ? 'bg-zinc-800/80 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}><HardDrive size={16} /> Data & Cache</button>
           </div>
         </div>
 
         {/* Right Content */}
-        <div className="flex-1 flex flex-col bg-[#09090b]">
+        <div className="flex-1 flex flex-col bg-[#09090b] relative w-full overflow-hidden">
           <div className="h-16 px-4 md:px-6 border-b border-zinc-800 flex justify-between items-center bg-[#121214] shrink-0">
-            <h3 className="text-sm font-bold text-zinc-100 uppercase tracking-widest flex-1">
-              {activeTab === 'leaderboard' ? 'Papan Peringkat' : activeTab === 'data' ? 'Data & Cache' : activeTab}
+            <h3 className="text-sm font-bold text-zinc-100 uppercase tracking-widest flex-1 truncate">
+              {activeTab === 'paket' ? 'Status Paket' : activeTab === 'broadcast' ? 'Informasi' : activeTab === 'leaderboard' ? 'Papan Peringkat' : activeTab === 'data' ? 'Data & Cache' : activeTab}
             </h3>
             <button onClick={onClose} className="hidden md:block p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors group">
               <X size={20} className="group-hover:rotate-90 transition-transform" />
@@ -252,22 +285,22 @@ export function AppSettingsModal({ isOpen, onClose }: AppSettingsModalProps) {
                 <div className="bg-blue-500/10 border border-blue-500/20 p-5 rounded-xl">
                   <div className="flex justify-between items-center mb-4">
                     <h4 className="text-zinc-200 font-medium">Batas Penggunaan Harian</h4>
-                    <span className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-xs font-bold ring-1 ring-blue-500/30">Free Plan</span>
+                    <span className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-xs font-bold ring-1 ring-blue-500/30 uppercase">{userPlan?.plan || 'free'} Plan</span>
                   </div>
                   <div className="flex items-end gap-2 mb-2">
-                    <span className="text-4xl font-bold text-white">{10 - queriesUsed}</span>
-                    <span className="text-zinc-400 text-sm mb-1">/ 10 Kueri tersisa</span>
+                    <span className="text-4xl font-bold text-white">{userPlan?.limit || 0}</span>
+                    <span className="text-zinc-400 text-sm mb-1">Kueri tersisa</span>
                   </div>
                   <div className="w-full bg-[#09090b] rounded-full h-2 mb-4 border border-zinc-800">
-                    <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${(queriesUsed / 10) * 100}%` }}></div>
+                    <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(((userPlan?.limit || 0) / (userPlan?.plan === 'free' ? 10 : userPlan?.plan === 'prem' ? 300 : 999999)) * 100, 100)}%` }}></div>
                   </div>
-                  <p className="text-xs text-zinc-400">Default limit adalah 10 kueri per hari. Upgrade akun untuk limit tidak terbatas (Segera Hadir).</p>
+                  <p className="text-xs text-zinc-400">Limit akun Anda otomatis disesuaikan dengan jenis paket. Hubungi admin jika ada kendala limit.</p>
                 </div>
                 
                 <div className="bg-zinc-800/50 border border-zinc-700/50 p-4 rounded-xl">
                   <h4 className="text-sm font-medium text-zinc-300 mb-2">Statistik Akun</h4>
                   <ul className="text-xs text-zinc-400 space-y-2">
-                    <li className="flex justify-between"><span>Total Kueri Terbuat Hari Ini:</span> <span className="text-zinc-200">{queriesUsed}</span></li>
+                    <li className="flex justify-between"><span>Total Kueri Tersisa Hari Ini:</span> <span className="text-zinc-200">{userPlan?.limit || 0}</span></li>
                     <li className="flex justify-between"><span>Reset Berikutnya:</span> <span className="text-zinc-200">Waktu Lokal (00:00)</span></li>
                   </ul>
                 </div>
@@ -349,6 +382,74 @@ export function AppSettingsModal({ isOpen, onClose }: AppSettingsModalProps) {
                   </div>
                   <p className="text-[10px] text-zinc-500">Maksimal ukuran foto 5MB. Tetap patuhi aturan grup.</p>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'paket' && (
+              <div className="space-y-6">
+                <div className="bg-[#121214] border border-zinc-800 rounded-2xl p-6">
+                   <h4 className="font-semibold text-zinc-200 mb-2">Paket Akun Anda Saat Ini</h4>
+                   <div className="inline-block px-3 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
+                     Plan aktif: {userPlan?.plan || 'free'}
+                   </div>
+                   <p className="text-sm text-zinc-400 mb-6">Nikmati akses prioritas dan limit ekstra menggunakan kode langganan Anda.</p>
+
+                   <div className="flex gap-2">
+                     <input type="text" value={reedemCode} onChange={(e) => setReedemCode(e.target.value)} className="flex-1 bg-[#09090b] border border-zinc-800 rounded-lg px-4 py-2 text-sm text-zinc-200 focus:outline-none focus:border-blue-500 uppercase font-mono" placeholder="MASUKAN-KODE-AKTIVASI" />
+                     <button onClick={handleReedemCode} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-sm transition-colors shadow-lg">Pakai Kode</button>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div className="bg-[#09090b] border border-zinc-800 rounded-2xl p-5 hover:border-zinc-700 transition-colors">
+                     <div className="flex justify-between items-start mb-4">
+                       <h4 className="font-bold text-zinc-100 uppercase tracking-widest text-sm">Paket Prem</h4>
+                       <span className="text-xs font-bold text-blue-400 bg-blue-400/10 px-2 py-1 rounded">Rp 6.000</span>
+                     </div>
+                     <ul className="space-y-2 mb-6">
+                        <li className="flex items-center gap-2 text-xs text-zinc-400"><Battery size={14} className="text-zinc-500"/> Tambahan 300 Limit Kuota / Hari</li>
+                        <li className="flex items-center gap-2 text-xs text-zinc-400"><User size={14} className="text-zinc-500"/> Masa berlaku 1 Tahun</li>
+                     </ul>
+                   </div>
+                   <div className="bg-gradient-to-br from-[#121214] to-[#09090b] border border-blue-900/50 rounded-2xl p-5 relative overflow-hidden">
+                     <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-600/10 blur-xl rounded-full"></div>
+                     <div className="flex justify-between items-start mb-4 relative z-10">
+                       <h4 className="font-bold text-zinc-100 uppercase tracking-widest text-sm flex items-center gap-2">Paket Pro <span className="bg-gradient-to-r from-blue-500 to-cyan-500 text-transparent bg-clip-text text-[10px]">TERBAIK</span></h4>
+                       <span className="text-xs font-bold text-white bg-blue-600 px-2 py-1 rounded shadow-lg shadow-blue-600/20">Rp 11.000</span>
+                     </div>
+                     <ul className="space-y-2 mb-6 relative z-10">
+                        <li className="flex items-center gap-2 text-xs text-zinc-400"><Trophy size={14} className="text-blue-400"/> Akses Limit Sepenuhnya UNLIMITED</li>
+                        <li className="flex items-center gap-2 text-xs text-zinc-400"><Palette size={14} className="text-blue-400"/> Fitur Premium Penuh</li>
+                        <li className="flex items-center gap-2 text-xs text-zinc-400"><User size={14} className="text-zinc-500"/> Masa berlaku 1 Tahun</li>
+                     </ul>
+                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'broadcast' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 mb-4 border-b border-zinc-800">
+                  <Radio size={16} className="text-blue-500" />
+                  <span className="text-sm font-semibold text-zinc-200">Kotak Masuk Server</span>
+                </div>
+                {broadcasts.length === 0 ? (
+                  <div className="bg-[#09090b] border border-zinc-800 rounded-xl p-8 flex flex-col items-center justify-center text-center">
+                    <Radio size={32} className="text-zinc-700 mb-3" />
+                    <p className="text-sm font-medium text-zinc-400">Tidak ada pengumuman terbaru</p>
+                    <p className="text-xs text-zinc-600 mt-1">Pesan dari administrasi akan muncul di sini.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {broadcasts.map((b) => (
+                      <div key={b.id} className="bg-[#121214] border border-zinc-800 rounded-xl p-4 hover:border-zinc-700 transition-colors">
+                        <h4 className="font-bold text-zinc-200 text-sm mb-1">{b.title}</h4>
+                        <p className="text-zinc-400 text-xs mb-3 leading-relaxed">{b.message}</p>
+                        <p className="text-[10px] text-zinc-600 font-medium">1 Sistem Notifikasi</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

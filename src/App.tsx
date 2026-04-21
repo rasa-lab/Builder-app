@@ -146,6 +146,7 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
+  const [userPlan, setUserPlan] = useState<{plan: string, limit: number}>({plan: 'free', limit: 10});
   const [authLoading, setAuthLoading] = useState(true);
   
   const [showBoot, setShowBoot] = useState(true);
@@ -209,6 +210,34 @@ export default function App() {
       setUser(u);
       setAuthLoading(false);
       if (u) {
+        // Fetch user plan limits
+        onSnapshot(doc(db, 'users', u.uid), (snap) => {
+           if (snap.exists()) {
+             const data = snap.data();
+             const plan = data.plan || 'free';
+             let limit = data.dailyLimit;
+             
+             if (limit === undefined) {
+               limit = 10;
+               if (plan === 'prem') limit = 300;
+               if (plan === 'pro') limit = 999999;
+             }
+             
+             setUserPlan({ plan, limit });
+             // Here we could implement the daily limit check against 'limitResetAt'
+           } else {
+             setDoc(doc(db, 'users', u.uid), {
+               email: u.email,
+               plan: 'free',
+               dailyLimit: 10,
+               createdAt: serverTimestamp()
+             })
+             setUserPlan({ plan: 'free', limit: 10 });
+           }
+        }, (error) => {
+          console.error("Error fetching user data:", error);
+        });
+
         // Only show welcome once per login session
         if (!sessionStorage.getItem('xbuilder_welcomed')) {
           setShowWelcome(true);
@@ -409,6 +438,16 @@ export default function App() {
       });
 
       const stream = streamWebsiteGeneration(contentsForAI, selectedModel, apiKeys, files || {}, projectMode);
+
+      // Decrement Limit here locally and in DB
+      if (user && userPlan) {
+         const newLimit = Math.max(0, userPlan.limit - 1);
+         setUserPlan({ ...userPlan, limit: newLimit });
+         try {
+            await setDoc(doc(db, 'users', user.uid), { dailyLimit: newLimit }, { merge: true });
+         } catch(e) {}
+      }
+
       let fullResponse = "";
       
       const isErrorFix = text.toLowerCase().match(/error|bug|fix|rusak|salah|perbaiki|gagal/);
@@ -755,7 +794,7 @@ export default function App() {
 
         <div className="flex flex-1 overflow-hidden relative bg-[#09090b]">
            {/* Chat Pane */}
-          <div className={`flex flex-col overflow-hidden transition-all ${isDesktopMode ? 'w-1/2 border-r border-zinc-800' : (mobileTab === 'chat' ? 'w-full' : 'hidden md:flex md:w-full border-r border-zinc-800')}`}>
+          <div className={`flex flex-col transition-all h-full ${isDesktopMode ? 'w-full md:w-1/2 border-r border-zinc-800' : (mobileTab === 'chat' ? 'w-full' : 'hidden md:flex md:w-full border-r border-zinc-800')}`}>
             <ChatPane 
               messages={messages} 
               onSendMessage={handleSendMessage} 
@@ -764,11 +803,12 @@ export default function App() {
               onModelChange={setSelectedModel}
               projectMode={projectMode}
               onModeChange={setProjectMode}
+              userPlan={userPlan}
             />
           </div>
 
           {/* Preview Pane */}
-          <div className={`flex flex-col overflow-hidden transition-all ${isDesktopMode ? 'w-1/2' : (mobileTab === 'preview' ? 'w-full' : 'hidden md:flex md:w-full')}`}>
+          <div className={`flex flex-col transition-all h-full ${isDesktopMode ? 'hidden md:flex md:w-1/2' : (mobileTab === 'preview' ? 'w-full' : 'hidden md:flex md:w-full')}`}>
             <PreviewPane 
               files={files} 
               onChangeFiles={setFiles} 
@@ -791,7 +831,8 @@ export default function App() {
 
       <AppSettingsModal 
         isOpen={isAppSettingsOpen} 
-        onClose={() => setIsAppSettingsOpen(false)} 
+        onClose={() => setIsAppSettingsOpen(false)}
+        userPlan={userPlan}
       />
 
       {/* Clear Chat Confirmation Modal */}

@@ -33,6 +33,31 @@ service cloud.firestore {
       allow delete: if isDocOwner();
     }
     
+    // ===============================================================
+    // Allow users to sync specific read-only collections
+    // ===============================================================
+    match /promos/{docId} {
+      allow read: if isAuthenticated();
+      // Only admin logic would write here, but since we don't have server admin we allow authenticated users to create (from admin panel)
+      allow write: if isAuthenticated();
+    }
+    match /broadcasts/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    match /package_codes/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    match /group_messages/{docId} {
+      allow read, write: if isAuthenticated(); 
+    }
+    
+    // Allow creating/reading service messages (User specific sub logic could be implemented but we just allow auth for now)
+    match /{path=**}/service_messages/{docId} {
+       allow read, write: if isAuthenticated();
+    }
+
     match /{document=**} {
       allow read, write: if isAuthenticated();
     }
