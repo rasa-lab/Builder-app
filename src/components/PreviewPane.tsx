@@ -9,9 +9,10 @@ interface PreviewPaneProps {
   files: Record<string, string>;
   onChangeFiles: (files: Record<string, string>) => void;
   projectMode: ProjectMode;
+  isGenerating?: boolean;
 }
 
-export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPaneProps) {
+export function PreviewPane({ files, onChangeFiles, projectMode, isGenerating }: PreviewPaneProps) {
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
   const [activeFile, setActiveFile] = useState<string>('index.html');
   const [iframeKey, setIframeKey] = useState(0);
@@ -47,6 +48,28 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
     window.addEventListener('open_netlify_deploy', handleOpenNetlifyDeploy);
     return () => window.removeEventListener('open_netlify_deploy', handleOpenNetlifyDeploy);
   }, []);
+
+  const [loadingText, setLoadingText] = useState("Membuat...");
+  
+  useEffect(() => {
+    if (!isGenerating) {
+      setLoadingText("Membuat...");
+      return;
+    }
+    const steps = [
+      "Membuat...",
+      "Menyiapkan struktur...",
+      "Menulis kode & logika...",
+      "Menyelesaikan styling...",
+      "Mengecek kembali kode..."
+    ];
+    let i = 0;
+    const interval = setInterval(() => {
+      i = (i + 1) % steps.length;
+      setLoadingText(steps[i]);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [isGenerating]);
 
   const handleRefresh = () => {
     setIframeKey(prev => prev + 1);
@@ -504,7 +527,37 @@ export function PreviewPane({ files, onChangeFiles, projectMode }: PreviewPanePr
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden relative bg-white flex">
+      <div className="flex-1 overflow-hidden relative bg-[#09090b] flex">
+        {isGenerating && activeTab === 'preview' && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#09090b]/80 backdrop-blur-md">
+            <div className="flex flex-col items-center max-w-[280px] w-full px-6 bg-zinc-900/60 p-6 rounded-3xl border border-zinc-800/60 shadow-2xl scale-95 md:scale-100">
+              <div className="w-16 h-16 bg-blue-500/10 rounded-[1.25rem] border border-blue-500/30 flex items-center justify-center mb-6 relative shadow-inner">
+                <span className="text-2xl font-bold text-blue-500 italic drop-shadow-md">X</span>
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#09090b] border border-blue-500/30 rounded-full flex items-center justify-center z-10 shadow-md">
+                  <Loader2 size={10} className="text-blue-500 animate-spin" />
+                </div>
+              </div>
+              
+              <div className="w-full h-1.5 bg-zinc-800/80 rounded-full overflow-hidden mb-3 relative shadow-inner">
+                <div className="h-full bg-gradient-to-r from-green-500/80 to-emerald-400 rounded-full absolute left-0 top-0 bottom-0 animate-[progress_2.5s_ease-in-out_infinite]" style={{ width: '40%' }}></div>
+              </div>
+              
+              <div className="w-full flex justify-between items-center text-[10px] md:text-xs">
+                <span className="text-zinc-400 font-medium tracking-wide truncate pr-2 max-w-[70%]">{loadingText.toUpperCase()}</span>
+                <span className="text-emerald-400 font-mono tracking-tighter shrink-0 animate-pulse">Loading...</span>
+              </div>
+              
+              <style>{`
+                @keyframes progress {
+                  0% { width: 0%; left: 0; }
+                  50% { width: 60%; left: 20%; }
+                  100% { width: 100%; left: 100%; }
+                }
+              `}</style>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'preview' ? (
           projectMode === 'website' ? (
             <iframe

@@ -309,6 +309,29 @@ export default function App() {
   const handleSendMessage = async (text: string, attachments?: { name: string; data: string; type: string }[]) => {
     if (!securityCheck()) return;
     
+    // Check Daily Limit
+    const today = new Date().toDateString();
+    let queryData = { count: 0, date: today };
+    try {
+      const storedLimit = localStorage.getItem('xbuilder_queries');
+      if (storedLimit) queryData = JSON.parse(storedLimit);
+    } catch(e) {}
+    
+    if (queryData.date !== today) {
+      queryData = { count: 0, date: today };
+    }
+    
+    if (queryData.count >= 10) {
+      alert("Limit harian Anda (10 kueri) telah habis. Harap perbarui akun atau tunggu hingga besok.");
+      return;
+    }
+    
+    queryData.count += 1;
+    localStorage.setItem('xbuilder_queries', JSON.stringify(queryData));
+    
+    // Trigger custom event so AppSettingsModal can update dynamically if it's open
+    window.dispatchEvent(new Event('limit_updated'));
+
     const sanitizedText = sanitizeInput(text);
 
     const now = Date.now();
@@ -750,6 +773,7 @@ export default function App() {
               files={files} 
               onChangeFiles={setFiles} 
               projectMode={projectMode}
+              isGenerating={isGenerating}
             />
           </div>
         </div>

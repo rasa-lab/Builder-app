@@ -32,5 +32,9 @@ service cloud.firestore {
       allow update: if isDocOwner() && request.resource.data.userId == request.auth.uid;
       allow delete: if isDocOwner();
     }
+    
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }
